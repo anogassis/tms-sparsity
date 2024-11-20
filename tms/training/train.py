@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from typing import Any, Iterable, Optional, Union, Tuple, List, Dict
+from typing import Any, Iterable, Optional, Union, Tuple, List, Dict, Callable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from tms.utils.config import DEVICE
-from tms.data.dataset import SyntheticBinaryValued
+from tms.data.dataset import SyntheticBinaryValued, SyntheticDataset
 from tms.models.autoencoder import ToyAutoencoder
 from tms.utils.utils import generate_init_param, generate_optimal_solution
 
@@ -31,6 +31,7 @@ def create_and_train(
     prior_std: float = 10.,
     seed: int = 0,
     use_optimal_solution: bool = False,
+    data_generating_class: SyntheticDataset = SyntheticBinaryValued,
 ) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
     """
     Create and train a model using the given parameters.
@@ -93,8 +94,10 @@ def create_and_train(
     if "b" in init_weights:
         model.unembedding.bias.data = torch.from_numpy(init_weights["b"].flatten()).float()
 
-    dataset = SyntheticBinaryValued(num_samples, m, sparsity)
-    dataset_test = SyntheticBinaryValued(num_samples_test, m, sparsity)
+
+    dataset = data_generating_class(num_samples, m, sparsity)
+
+    dataset_test = data_generating_class(num_samples_test, m, sparsity)
     batch_size = batch_size
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
