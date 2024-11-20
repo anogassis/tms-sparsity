@@ -1,6 +1,7 @@
 import os
 import torch
 from tms.utils.utils import generate_sparsity_values
+from tms.data.dataset import SyntheticBinarySparseValued
 
 DEVICE = os.environ.get(
     "DEVICE",
@@ -215,6 +216,48 @@ training_dicts = {
         "prior_std": [10.0],
         "seed": [i for i in range(50)],
         "use_optimal_solution": [True],
+    },
+    "1.13.0":
+    # Same as 1.8 but with 1000 samples, 200 test samples and 10.0 prior std
+    {
+        "m": [6],
+        "n": [2],
+        "num_samples": [1024],
+        "num_samples_test": [192],
+        "batch_size": [1024],
+        "num_epochs": [20000],
+        "sparsity": [x for x in generate_sparsity_values(5, 10) if x != 0],
+        "lr": [0.005],
+        "momentum": [0.9],
+        "weight_decay": [0.0],
+        "init_kgon": [4],
+        "no_bias": [False],
+        "init_zerobias": [False],
+        "prior_std": [10.0],
+        "seed": [i for i in range(50)],
+        "use_optimal_solution": [False],
+        "data_generating_class": [SyntheticBinarySparseValued],
+    },
+    "1.14.0":
+    # Same as 1.9 but with 1000 samples, 200 test samples and 10.0 prior std
+    {
+        "m": [6],
+        "n": [2],
+        "num_samples": [1024],
+        "num_samples_test": [192],
+        "batch_size": [1024],
+        "num_epochs": [20000],
+        "sparsity": [x for x in generate_sparsity_values(5, 10) if x != 0],
+        "lr": [0.005],
+        "momentum": [0.9],
+        "weight_decay": [0.0],
+        "init_kgon": [4],
+        "no_bias": [False],
+        "init_zerobias": [False],
+        "prior_std": [10.0],
+        "seed": [i for i in range(50)],
+        "use_optimal_solution": [True],
+        "data_generating_class": [SyntheticBinarySparseValued],
     },
 }
 
