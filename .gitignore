@@ -165,5 +165,3 @@ cython_debug/
 .DS_Store
 
 # keep all_runs.pkl
-!/data/*all_runs.pkl
-!/data/*.zip
