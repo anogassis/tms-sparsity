@@ -51,7 +51,6 @@ class SyntheticDataset(Dataset, ABC):
         Returns:
             A sparse mask for the given dataset.
         """
-
         if isinstance(self.sparsity, float):
             return torch.bernoulli(
                 torch.ones((self.num_samples, self.num_features)) * (1 - self.sparsity)
@@ -69,6 +68,7 @@ class SyntheticDataset(Dataset, ABC):
                 f"Sparsity must be a float or an integer. Received {type(self.sparsity)}."
             )
 
+
     def generate_data(self):
         return self.generate_mask() * self.generate_values()
 
@@ -77,6 +77,7 @@ class SyntheticDataset(Dataset, ABC):
 
     def __getitem__(self, idx):
         return self.data[idx]
+
 
 
 class SyntheticUniformValued(SyntheticDataset):
@@ -95,3 +96,26 @@ class SyntheticBinaryValued(SyntheticDataset):
 
     def generate_values(self):
         return 1.0
+
+class SyntheticBinarySparseValued(SyntheticBinaryValued):
+    def generate_mask(self):
+        """
+        This implemenation smoothly interpolates between sparsity of 0 where all values are 1 and sparsity of 1 where only 1 value is 1
+
+        Args:
+            dataset: The dataset to generate the mask for.
+
+        Returns:
+            A sparse mask for the given dataset.
+        """
+        if self.sparsity < 0 or self.sparsity > 1:
+            raise ValueError("Sparsity has to be between 0 and 1")
+            
+
+        mask = torch.bernoulli(
+            torch.ones((self.num_samples, self.num_features)) * (1 - self.sparsity)
+        )
+        for i in range(self.num_samples):
+            indices = torch.randperm(self.num_features)[: 1]
+            mask[i, indices] = 1
+        return mask

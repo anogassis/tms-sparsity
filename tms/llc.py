@@ -99,7 +99,7 @@ def estimate_llc(
     version,
     data_directory="../data",
     hyperparam_combos=[(300, 0.001)],
-    snapshot_indices=[0, 9, 18, 27, 36],
+    snapshot_indices=[0, 9, 18, 27, 36, 45],
     num_samples_test=200,
     num_chains=5,
     num_draws=500,
