@@ -3,7 +3,8 @@ import glob
 import numpy as np
 import os
 
-def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
+
+def generate_2d_kgon_vertices(k, rot=0.0, pad_to=None, force_length=0.9):
     """
     Generate the vertices of a 2D k-gon.
 
@@ -24,7 +25,7 @@ def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
         An array of shape (2, k) containing the x and y coordinates of the vertices.
     """
     # Angles for the vertices
-    theta = np.linspace(0, 2*np.pi, k, endpoint=False) + rot
+    theta = np.linspace(0, 2 * np.pi, k, endpoint=False) + rot
 
     # Generate the vertices
     x = np.cos(theta)
@@ -37,7 +38,18 @@ def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
 
     return result * force_length
 
-def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobias=True, seed=0, force_negb=False, noise=0.01):
+
+def generate_init_param(
+    m,
+    n,
+    init_kgon,
+    prior_std=1.0,
+    no_bias=True,
+    init_zerobias=True,
+    seed=0,
+    force_negb=False,
+    noise=0.01,
+):
     """
     Generate initial parameters for a neural network layer.
 
@@ -89,11 +101,9 @@ def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobi
             init_b = -np.abs(init_b)
         if init_zerobias:
             init_b = init_b * 0
-        param = {
-            "W": init_W,
-            "b": init_b
-        }
+        param = {"W": init_W, "b": init_b}
     return param
+
 
 def generate_optimal_solution(m, n, rot=0.0):
     """
@@ -135,11 +145,9 @@ def generate_optimal_solution(m, n, rot=0.0):
         init_b = -np.ones((n, 1)) * 0.9999
 
     init_w = generate_2d_kgon_vertices(n, rot=rot, force_length=l, pad_to=n)
-    param = {
-        "W": init_w,
-        "b": init_b
-    }
+    param = {"W": init_w, "b": init_b}
     return param
+
 
 def generate_sparsity_values(scale: float, count: int) -> np.ndarray:
     """
@@ -161,8 +169,9 @@ def generate_sparsity_values(scale: float, count: int) -> np.ndarray:
     x = np.linspace(0, scale, count)
     # Apply the exponential decay function
     values = np.round(1 - np.exp(-x), 3)
-    
+
     return values
+
 
 def load_results(data_dir, version="1.5.0"):
     """
@@ -185,14 +194,16 @@ def load_results(data_dir, version="1.5.0"):
     FileNotFoundError
         If no files matching the file pattern are found.
     """
-    
-    all_runs_file_pattern = f'{data_dir}/logs_loss_{version}all_runs.pkl'
+
+    all_runs_file_pattern = f"{data_dir}/logs_loss_{version}_all_runs.pkl"
     if os.path.exists(all_runs_file_pattern):
         with open(all_runs_file_pattern, "rb") as file:
-            return pickle.load(file)
-    
+
+            results = pickle.load(file)
+            return results
+
     # If the all_runs file does not exist, load individual files
-    file_pattern = f'{data_dir}/logs_loss_{version}_*.pkl'
+    file_pattern = f"{data_dir}/logs_loss_{version}_*.pkl"
     results = []
 
     for file_path in glob.glob(file_pattern):
