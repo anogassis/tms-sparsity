@@ -53,6 +53,6 @@ def run_all_experiments(versions, data_path):
 
 
 if __name__ == "__main__":
-    VERSIONS = ["1.13.0", "1.14.0"]
+    VERSIONS = ["debug_1.14.0"]
     DATA_PATH = "data"
     run_all_experiments(VERSIONS, DATA_PATH)
