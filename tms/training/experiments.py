@@ -4,12 +4,15 @@ import os
 import pickle
 from typing import Any, Callable, Dict, List
 
+from tms.utils.logger import logger
+
+
 def run_experiments(
     training_dict: Dict[str, List[Any]],
     train_func: Callable[[Dict[str, Any]], Any],
     save: bool = False,
-    file_name: str = None
-    ) -> List[Dict[str, Any]]:
+    file_name: str = None,
+) -> List[Dict[str, Any]]:
     """
     Runs experiments for all combinations of parameters in the training dictionary,
     with an incremental run_id starting at 0.
@@ -39,18 +42,24 @@ def run_experiments(
 
     # Iterate through each combination
     for run_id, combination in enumerate(combinations):
-        
+
         params = dict(zip(param_names, combination))
 
-        if 'use_optimal_solution' not in params.keys():
-            raise Exception("use_optimal_solution needs to be defined. Update the training dictionary and rerun this function.")
+        if "use_optimal_solution" not in params.keys():
+            raise Exception(
+                "use_optimal_solution needs to be defined. Update the training dictionary and rerun this function."
+            )
 
         # Calculate `log_ivl` based on `num_epochs`
-        num_epochs = params.get('num_epochs', 100)
+        num_epochs = params.get("num_epochs", 100)
         num_observations = 50  # As per example
-        steps = sorted(list(set(np.logspace(0, np.log10(num_epochs), num_observations).astype(int))))
-        params['log_ivl'] = steps
-        print(f"starting run {run_id}")
+        steps = sorted(
+            list(
+                set(np.logspace(0, np.log10(num_epochs), num_observations).astype(int))
+            )
+        )
+        params["log_ivl"] = steps
+        logger.info(f"Starting run {run_id}")
 
         logs, weights, dataset, dataset_test = train_func(**params)
         run_result = {
@@ -63,20 +72,24 @@ def run_experiments(
         }
 
         if save and file_name:
-            pkl_file_name = file_name + '_' + str(run_id) + '.pkl'
+            pkl_file_name = file_name + "_" + str(run_id) + ".pkl"
+            logger.debug(f"Saving results to {pkl_file_name}")
         if os.path.exists(pkl_file_name):
             continue
         else:
-            with open(pkl_file_name, 'wb') as file:
+            with open(pkl_file_name, "wb") as file:
                 pickle.dump(run_result, file)
+                logger.debug(f"Run {run_id} completed")
 
     all_results = []
     for idx in range(len(combinations)):
-        pkl_file_name = file_name + '_' + str(idx) + '.pkl'
-        with open(pkl_file_name, 'rb') as file:
+        pkl_file_name = file_name + "_" + str(idx) + ".pkl"
+        with open(pkl_file_name, "rb") as file:
             all_results.append(pickle.load(file))
+    logger.info("All runs completed")
     if save:
-        with open(file_name + 'all_runs.pkl', 'wb') as file:
+        with open(file_name + "_all_runs.pkl", "wb") as file:
             pickle.dump(all_results, file)
+            logger.info(f"All results saved to {file_name}_all_runs.pkl")
 
     return all_results

@@ -3,6 +3,8 @@ import glob
 import numpy as np
 import os
 
+from tms.utils.logger import logger
+
 
 def generate_2d_kgon_vertices(k, rot=0.0, pad_to=None, force_length=0.9):
     """
@@ -198,9 +200,7 @@ def load_results(data_dir, version="1.5.0"):
     all_runs_file_pattern = f"{data_dir}/logs_loss_{version}_all_runs.pkl"
     if os.path.exists(all_runs_file_pattern):
         with open(all_runs_file_pattern, "rb") as file:
-
-            results = pickle.load(file)
-            return results
+            return pickle.load(file)
 
     # If the all_runs file does not exist, load individual files
     file_pattern = f"{data_dir}/logs_loss_{version}_*.pkl"
@@ -211,11 +211,14 @@ def load_results(data_dir, version="1.5.0"):
             with open(file_path, "rb") as file:
                 results.append(pickle.load(file))
         except Exception as e:
+            logger.error(f"Error loading {file_path}: {e}", exc_info=True)
+            logger.debug(type(e))
             print(f"Error loading {file_path}: {e}")
             print(type(e))
             break
 
     if not results:
+        logger.error(f"No files matching the pattern {file_pattern} found.")
         raise FileNotFoundError(f"No files matching the pattern {file_pattern} found.")
 
     return results
