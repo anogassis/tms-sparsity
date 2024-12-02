@@ -28,7 +28,7 @@ def create_and_train(
     init_kgon: int = None,
     no_bias: bool = False,
     init_zerobias: bool = False,
-    prior_std: float = 10.,
+    prior_std: float = 10.0,
     seed: int = 0,
     use_optimal_solution: bool = False,
     data_generating_class: SyntheticDataset = SyntheticBinaryValued,
@@ -85,15 +85,25 @@ def create_and_train(
     torch.manual_seed(seed)
 
     model = ToyAutoencoder(m, n, final_bias=True)
-    init_weights = generate_init_param(n, m, init_kgon, prior_std=prior_std, no_bias=no_bias, init_zerobias=init_zerobias, seed=seed)
+    init_weights = generate_init_param(
+        n,
+        m,
+        init_kgon,
+        prior_std=prior_std,
+        no_bias=no_bias,
+        init_zerobias=init_zerobias,
+        seed=seed,
+    )
 
-    model.embedding.weight.data = torch.from_numpy(init_weights["W"]).float()
     if use_optimal_solution:
         init_weights = generate_optimal_solution(n, m, rot=0.0)
 
     if "b" in init_weights:
-        model.unembedding.bias.data = torch.from_numpy(init_weights["b"].flatten()).float()
+        model.unembedding.bias.data = torch.from_numpy(
+            init_weights["b"].flatten()
+        ).float()
 
+    model.embedding.weight.data = torch.from_numpy(init_weights["W"]).float()
 
     dataset = data_generating_class(num_samples, m, sparsity)
 
@@ -102,10 +112,23 @@ def create_and_train(
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     dataloader_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False)
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+    optimizer = optim.SGD(
+        model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
+    )
     criterion = nn.MSELoss()
 
-    logs = pd.DataFrame([{"loss": None, "acc": None, "test_loss": None, "test_acc":None, "step": step} for step in log_ivl])
+    logs = pd.DataFrame(
+        [
+            {
+                "loss": None,
+                "acc": None,
+                "test_loss": None,
+                "test_acc": None,
+                "step": step,
+            }
+            for step in log_ivl
+        ]
+    )
 
     model.to(device)
     weights = []
@@ -122,7 +145,9 @@ def create_and_train(
             for batch in dataloader:
                 batch = batch.to(device)
                 outputs = model(batch)
-                loss += criterion(outputs, batch).item() * len(batch) # adding "* len(batch)"
+                loss += criterion(outputs, batch).item() * len(
+                    batch
+                )  # adding "* len(batch)"
                 acc += (outputs.round() == batch).float().sum().item()
                 length += len(batch)
             for batch in dataloader_test:
@@ -137,8 +162,15 @@ def create_and_train(
         loss_test /= length_test
         acc_test /= length_test
 
-        logs.loc[logs["step"] == step, ["loss", "acc", "test_loss", "test_acc"]] = [loss, acc, loss_test, acc_test]
-        weights.append({k: v.cpu().detach().clone().numpy() for k, v in model.state_dict().items()})
+        logs.loc[logs["step"] == step, ["loss", "acc", "test_loss", "test_acc"]] = [
+            loss,
+            acc,
+            loss_test,
+            acc_test,
+        ]
+        weights.append(
+            {k: v.cpu().detach().clone().numpy() for k, v in model.state_dict().items()}
+        )
 
     step = 0
     log(step)
