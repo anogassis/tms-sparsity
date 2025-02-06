@@ -228,3 +228,8 @@ def iterate_container(container):
     if isinstance(container, dict):
         return container.values()
     return container
+
+def get_first(container):
+    if isinstance(container, dict):
+        return next(iter(container.values()))
+    return container[0]
