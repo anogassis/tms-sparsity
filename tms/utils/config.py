@@ -8,7 +8,9 @@ DEVICE = os.environ.get(
     (
         "cuda:0"
         if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available() else "cpu"
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
     ),
 )
 
@@ -258,7 +260,7 @@ training_dicts = {
         "use_optimal_solution": [True],
     },
     "1.13.0":
-    # Same as 1.8 but with 1024 samples, 192 test samples and 10.0 prior std
+    # Similar to 1.11, but we use 200 seeds and we changed the data-generating class to SyntheticBinarySparseValued (the previous one was incorrect). We also added sparsity 1.
     {
         "m": [6],
         "n": [2],
@@ -279,7 +281,7 @@ training_dicts = {
         "data_generating_class": [SyntheticBinarySparseValued],
     },
     "1.14.0":
-    # Same as 1.9 but with 1024 samples, 192 test samples and 10.0 prior std
+    # Similar to 1.12, but we use 200 seeds and we changed the data-generating class to SyntheticBinarySparseValued (the previous one was incorrect). We also added sparsity 1.
     {
         "m": [6],
         "n": [2],
