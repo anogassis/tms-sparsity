@@ -51,6 +51,7 @@ Sparsity = 0.42
 ## TODO
 
 
+- [ ] fix that the log directory is ignored (we should add the empty directory to git)
 - [ ] training models
     - [ ] We could show the state of the models at Epoch 0 in additional to the other epochs shown.
     - [ ] We could run the experiments again with 1000 samples for both random and optimal initialization.
