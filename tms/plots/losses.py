@@ -4,6 +4,8 @@ import torch.nn as nn
 from tms.models.autoencoder import ToyAutoencoder
 from tms.data.dataset import SyntheticBinaryValued
 from tms.plots.kgons import plot_losses_and_polygons
+from tms.utils.utils import iterate_container
+from typing import Any, Dict, List
 
 
 def plot_results_by_indices(results, indices):
@@ -53,7 +55,7 @@ def plot_results_by_indices(results, indices):
         plt.show()
             
 
-def plot_results(results, plot_number=5):
+def plot_results(results: List[Dict[str, Any]] | Dict[int,Dict[str,Any]], plot_number=5):
     """
     Plot the results of the experiment.
 
@@ -64,8 +66,8 @@ def plot_results(results, plot_number=5):
     plot_number : int, optional
         The maximum number of plots to display, by default 5.
     """
-    
-    sparsity = [result['parameters']['sparsity'] for result in results]
+
+    sparsity = [result['parameters']['sparsity'] for result in iterate_container(results)]
     for sparse_value in sparsity:
         plotted = 0
         print(f"Plot polygons for sparsity={sparse_value}")
