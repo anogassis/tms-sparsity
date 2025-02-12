@@ -375,7 +375,7 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     plt.tight_layout()
 
 def plot_experiments(
-    results: List[Dict[str, Any]],
+    results: List[Dict[str, Any]] | Dict[int,Dict[str,Any]],
     show:bool = True,
     save: bool = False,
     file_name: str = None
@@ -388,7 +388,7 @@ def plot_experiments(
     results : List[dict]
         A list of dictionaries, each containing the run_id, parameters used, logs, and weights.
     """
-    for result in results:
+    for result in iterate_container(results):
         run_id = result['run_id']
         params = result['parameters']
         logs = result['logs']

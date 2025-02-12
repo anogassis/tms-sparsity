@@ -15,6 +15,7 @@ from devinterp.utils import evaluate_mse
 
 from tms.utils.config import DEVICE
 from tms.utils.logger import logger
+from tms.utils.utils import iterate_container
 from tms.data.dataset import SyntheticBinaryValued
 from tms.models.autoencoder import ToyAutoencoder
 
@@ -157,7 +158,10 @@ def get_llc_data(results, version, data_directory):
     llc_data = pd.DataFrame()
     # Loop through the file paths, read each file and append to the list
     logger.debug(f"Getting llc data for version {version}")
-    for index in range(len(results)):
+    # TODO: get the index in a more sophisticated way
+
+    for result in iterate_container(results):
+        index = result['run_id']
         logger.debug(f"Getting llc data for run {index}")
         pattern = f"llc_estimate_{version}_{index}_"
         logger.debug(f"Pattern: {pattern}")

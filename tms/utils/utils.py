@@ -222,3 +222,14 @@ def load_results(data_dir, version="1.5.0"):
         raise FileNotFoundError(f"No files matching the pattern {file_pattern} found.")
 
     return results
+
+
+def iterate_container(container):
+    if isinstance(container, dict):
+        return container.values()
+    return container
+
+def get_first(container):
+    if isinstance(container, dict):
+        return next(iter(container.values()))
+    return container[0]
