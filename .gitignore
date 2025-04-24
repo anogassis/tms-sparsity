@@ -166,3 +166,7 @@ cython_debug/
 
 # keep *.zip in the data folder for LFS
 !data/*.zip
+
+# ignore results directories
+results/*
+results_backup/
