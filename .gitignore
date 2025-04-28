@@ -164,8 +164,9 @@ cython_debug/
 /data/*
 .DS_Store
 
-# keep *.zip in the data folder for LFS
+# keep these files in the data folder for LFS
 !data/*.zip
+!data/logs_loss_1.15.0_all_runs.pkl
 
 # ignore results directories
 results/*
