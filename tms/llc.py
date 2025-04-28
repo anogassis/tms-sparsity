@@ -18,6 +18,8 @@ from tms.utils.logger import logger
 from tms.utils.utils import iterate_container
 from tms.data.dataset import SyntheticBinaryValued
 from tms.models.autoencoder import ToyAutoencoder
+from multiprocessing import Pool
+
 
 
 NUM_FEATURES = 6
@@ -103,6 +105,54 @@ def sweep_lambdahat_estimation_hyperparams(
     logger.debug(f"Returning observations")
     return pd.DataFrame(observations)
 
+from multiprocessing import Pool
+import os
+
+def estimate_llc_single(
+    index,
+    result,
+    version,
+    data_directory,
+    hyperparam_combos,
+    snapshot_indices,
+    num_samples_test,
+    num_chains,
+    num_draws,
+    num_burnin_steps,
+):
+    try:
+        bias = result["parameters"]["no_bias"]
+        num_features = result["parameters"]["m"]
+        num_hidden_units = result["parameters"]["n"]
+        model = ToyAutoencoder(num_features, num_hidden_units, final_bias=not bias)
+
+        sparsity = result["parameters"]["sparsity"]
+        dataset = SyntheticBinaryValued(num_samples_test, num_features, sparsity)
+        dataset_double = TensorDataset(dataset.data, dataset.data)
+
+        for snapshot_index in snapshot_indices:
+            file_name = os.path.join(
+                data_directory,
+                f"llc_estimate_{version}_{index}_{snapshot_index}_{hyperparam_combos[0][0]}_{hyperparam_combos[0][1]}_{num_chains}_{num_draws}.csv"
+            )
+
+            llc_estimate = sweep_lambdahat_estimation_hyperparams(
+                model,
+                dataset_double,
+                result["weights"],
+                snapshot_index=snapshot_index,
+                num_chains=num_chains,
+                num_draws=num_draws,
+                hyperparam_combos=hyperparam_combos,
+                num_burnin_steps=num_burnin_steps,
+            )
+
+            llc_estimate.to_csv(file_name, index=False)
+
+        print(f"[{index}] Finished computation.")
+
+    except Exception as e:
+        print(f"[{index}] ERROR: {e}")
 
 def estimate_llc(
     results,
@@ -114,45 +164,94 @@ def estimate_llc(
     num_chains=5,
     num_draws=500,
     num_burnin_steps=0,
+    num_workers=32,
 ):
-    llc_estimate_filename = f"{data_directory}/llc_estimate_{version}"
-    logger.debug(f"Estimating LLC for version {version}")
-    # Load the model
-    bias = results[0]["parameters"]["no_bias"]
-    num_features = results[0]["parameters"]["m"]
-    num_hidden_units = results[0]["parameters"]["n"]
-    model = ToyAutoencoder(num_features, num_hidden_units, final_bias=not bias)
-    logger.debug(f"Model loaded for version {version}")
+    os.makedirs(data_directory, exist_ok=True)
+
+    # STEP 1: Load already computed indices once
     already_computed_llcs = get_llc_data(results, version, data_directory)
-    indices_already_computed = already_computed_llcs["index"].unique()
-    for index in tqdm(range(len(results))):
-        if index in indices_already_computed:
-            logger.info(f"LLC already computed for run {index}. Skipping.")
-            continue
-        for snapshot_index in snapshot_indices:
-            file_name = f"{llc_estimate_filename}_{index}_{snapshot_index}_{hyperparam_combos[0][0]}_{hyperparam_combos[0][1]}_{num_chains}_{num_draws}.csv"
-            logger.info(f"Running llc estimation for run {index}")
-            sparsity = results[index]["parameters"]["sparsity"]
+    indices_already_computed = set(already_computed_llcs["index"].unique())
 
-            dataset = SyntheticBinaryValued(num_samples_test, num_features, sparsity)
-            dataset_double = TensorDataset(dataset.data, dataset.data)
+    # STEP 2: Prepare the list of work to do
+    args_list = [
+        (
+            idx,
+            results[idx],
+            version,
+            data_directory,
+            hyperparam_combos,
+            snapshot_indices,
+            num_samples_test,
+            num_chains,
+            num_draws,
+            num_burnin_steps,
+        )
+        for idx in range(len(results))
+        if idx not in indices_already_computed
+    ]
 
-            logger.info(f"Running llc estimation for snapshot {snapshot_index}")
+    if not args_list:
+        print("Nothing to do — all indices already computed.")
+        return already_computed_llcs
 
-            llc_estimate = sweep_lambdahat_estimation_hyperparams(
-                model,
-                dataset_double,
-                results[index]["weights"],
-                snapshot_index=snapshot_index,
-                num_chains=num_chains,
-                num_draws=num_draws,
-                hyperparam_combos=hyperparam_combos,
-                num_burnin_steps=num_burnin_steps,
-            )
-            logger.debug(f"Saving llc estimate to {file_name}")
-            llc_estimate.to_csv(file_name)
+    print(f"Starting LLC estimation for {len(args_list)} runs...")
+
+    with Pool(processes=num_workers) as pool:
+        pool.starmap(estimate_llc_single, args_list)
 
     return get_llc_data(results, version, data_directory)
+
+
+
+# def estimate_llc(
+#     results,
+#     version,
+#     data_directory="data",
+#     hyperparam_combos=[(300, 0.001)],
+#     snapshot_indices=[0, 9, 18, 27, 36, 45],
+#     num_samples_test=200,
+#     num_chains=5,
+#     num_draws=500,
+#     num_burnin_steps=0,
+# ):
+#     llc_estimate_filename = f"{data_directory}/llc_estimate_{version}"
+#     logger.debug(f"Estimating LLC for version {version}")
+#     # Load the model
+#     bias = results[0]["parameters"]["no_bias"]
+#     num_features = results[0]["parameters"]["m"]
+#     num_hidden_units = results[0]["parameters"]["n"]
+#     model = ToyAutoencoder(num_features, num_hidden_units, final_bias=not bias)
+#     logger.debug(f"Model loaded for version {version}")
+#     already_computed_llcs = get_llc_data(results, version, data_directory)
+#     indices_already_computed = already_computed_llcs["index"].unique()
+#     for index in tqdm(range(len(results))):
+#         if index in indices_already_computed:
+#             logger.info(f"LLC already computed for run {index}. Skipping.")
+#             continue
+#         for snapshot_index in snapshot_indices:
+#             file_name = f"{llc_estimate_filename}_{index}_{snapshot_index}_{hyperparam_combos[0][0]}_{hyperparam_combos[0][1]}_{num_chains}_{num_draws}.csv"
+#             logger.info(f"Running llc estimation for run {index}")
+#             sparsity = results[index]["parameters"]["sparsity"]
+
+#             dataset = SyntheticBinaryValued(num_samples_test, num_features, sparsity)
+#             dataset_double = TensorDataset(dataset.data, dataset.data)
+
+#             logger.info(f"Running llc estimation for snapshot {snapshot_index}")
+
+#             llc_estimate = sweep_lambdahat_estimation_hyperparams(
+#                 model,
+#                 dataset_double,
+#                 results[index]["weights"],
+#                 snapshot_index=snapshot_index,
+#                 num_chains=num_chains,
+#                 num_draws=num_draws,
+#                 hyperparam_combos=hyperparam_combos,
+#                 num_burnin_steps=num_burnin_steps,
+#             )
+#             logger.debug(f"Saving llc estimate to {file_name}")
+#             llc_estimate.to_csv(file_name)
+
+#     return get_llc_data(results, version, data_directory)
 
 
 def get_llc_data(results, version, data_directory):
@@ -160,7 +259,7 @@ def get_llc_data(results, version, data_directory):
     dfs = []
 
     # Initialize an empty list to store DataFrames
-    llc_data = pd.DataFrame(columns["index"])
+    llc_data = pd.DataFrame(columns=["index"])
     # Loop through the file paths, read each file and append to the list
     logger.debug(f"Getting llc data for version {version}")
     # TODO: get the index in a more sophisticated way
