@@ -160,7 +160,7 @@ def get_llc_data(results, version, data_directory):
     dfs = []
 
     # Initialize an empty list to store DataFrames
-    llc_data = pd.DataFrame()
+    llc_data = pd.DataFrame(columns["index"])
     # Loop through the file paths, read each file and append to the list
     logger.debug(f"Getting llc data for version {version}")
     # TODO: get the index in a more sophisticated way
@@ -182,6 +182,8 @@ def get_llc_data(results, version, data_directory):
             df["index"] = index
             dfs.append(df)
 
+    if not dfs:
+        return llc_data
     # Concatenate all DataFrames into a single DataFrame
     logger.debug(f"Concatenating llc data")
     llc_data = pd.concat(dfs, ignore_index=True)
