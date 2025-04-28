@@ -10,7 +10,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 torch = "2.3"
 ipykernel = "^6.29.5"
 scikit-learn = "^1.5.1"
