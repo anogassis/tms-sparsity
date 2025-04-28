@@ -123,7 +123,12 @@ def estimate_llc(
     num_hidden_units = results[0]["parameters"]["n"]
     model = ToyAutoencoder(num_features, num_hidden_units, final_bias=not bias)
     logger.debug(f"Model loaded for version {version}")
+    already_computed_llcs = get_llc_data(results, version, data_directory)
+    indices_already_computed = already_computed_llcs["index"].unique()
     for index in tqdm(range(len(results))):
+        if index in indices_already_computed:
+            logger.info(f"LLC already computed for run {index}. Skipping.")
+            continue
         for snapshot_index in snapshot_indices:
             file_name = f"{llc_estimate_filename}_{index}_{snapshot_index}_{hyperparam_combos[0][0]}_{hyperparam_combos[0][1]}_{num_chains}_{num_draws}.csv"
             logger.info(f"Running llc estimation for run {index}")
