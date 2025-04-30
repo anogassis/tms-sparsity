@@ -1,12 +1,19 @@
 import matplotlib.pyplot as plt
+# import matplotlib.cm as cm
+
 import torch
 import torch.nn as nn
+
+import numpy as np
+
+from typing import Any, Dict, List
+import warnings
+from collections import defaultdict
+
 from tms.models.autoencoder import ToyAutoencoder
 from tms.data.dataset import SyntheticBinaryValued
 from tms.plots.kgons import plot_losses_and_polygons
-from tms.utils.utils import iterate_container
-from typing import Any, Dict, List
-
+from tms.utils.utils import iterate_container, get_first
 
 def plot_results_by_indices(results, indices):
     """
@@ -110,3 +117,93 @@ def plot_results(results: List[Dict[str, Any]] | Dict[int,Dict[str,Any]], plot_n
             plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
             plt.show()
             
+
+def compare_dataframes_and_results(df_results_pairs, positions = [9, 18, 27, 36, 45], hyperparam_combos = [(300, 0.001)], x_scale="linear", y_scale="linear", sharey=False, sharex=False, ymin=1e-4):
+    warnings.simplefilter(action='ignore', category=UserWarning)  # Probably unwise, but warnings in this function are annoying
+    for batch_size, learning_rate in hyperparam_combos:
+        print(f"Batch size: {batch_size}, Learning rate: {learning_rate}\n")
+        
+        for position in positions:
+            fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
+            if len(df_results_pairs) == 1:
+                axes = [axes]
+            for pair_index, (llc_estimates, results) in enumerate(df_results_pairs):
+                llc_loss_by_sparsity = defaultdict(list)
+                steps = get_first(results)['parameters']['log_ivl']
+                
+                # Collect all sparsity values first to create color mapping
+                all_sparsities = []
+                for result in iterate_container(results):
+                    sparsity = results[result["run_id"]]['parameters']['sparsity']
+                    if sparsity != 0:  # Skip sparsity of 0 as you do later
+                        all_sparsities.append(sparsity)
+                
+                # # Create a normalized colormap (lower sparsity = darker color)
+                # unique_sparsities = sorted(set(all_sparsities), reverse=True)  # Reverse so lower values get darker colors
+                # color_norm = plt.Normalize(min(unique_sparsities), max(unique_sparsities))
+                # # color_map = cm.Blues_r  # Blues_r is reversed Blues (darker for lower values)
+
+                preagg = (
+                    llc_estimates
+                    .query("t_sgld > 150 & llc_type != 'mean'")
+                    .groupby(['index', 'batch_size', 'lr', 'snapshot_index'])['llc']
+                    .mean()
+                    .to_dict()
+                )
+                
+                for result in iterate_container(results):
+                    index = result["run_id"]
+
+                    llc = preagg.get((index, batch_size, learning_rate, position), np.nan)
+                    
+                    loss = results[index]['logs']['loss'].values[position]
+                    sparsity = results[index]['parameters']['sparsity']
+                    llc_loss_by_sparsity[sparsity].append((llc, loss))
+                
+                # Plot with color mapping
+                for sparsity, llc_loss in llc_loss_by_sparsity.items():
+                    if sparsity == 0:
+                        continue
+                    llcs = [llc for llc, loss in llc_loss if not(np.isnan(llc))]
+                    #losses = [loss for llc, loss in llc_loss if not(np.isnan(llc))]
+                    if all(np.isnan(llc) for llc in llcs):
+                        continue
+                    
+                    
+                    axes[pair_index].scatter(*zip(*llc_loss), label=f"Sparsity: {round(sparsity,3)}")
+                    
+                    if pair_index == 0:
+                        title = "Initialized at random 4-gon"
+                    if pair_index == 1:
+                        title = "Initialized at optimal parameters for sparse inputs"
+                    axes[pair_index].set_title(f"Pair {title}, Position {position}")
+                    axes[pair_index].set_xlabel("LLC")
+                    axes[pair_index].set_ylabel("Loss")
+                    axes[pair_index].legend()
+                    axes[pair_index].set_xscale(x_scale)
+                    axes[pair_index].set_yscale(y_scale)
+                    axes[pair_index].set_ylim(ymin=ymin)
+            plt.tight_layout()
+            plt.suptitle(f"Loss and LLC After Epoch {steps[position]}", fontsize=16)
+            plt.subplots_adjust(top=0.9)
+            # Create a parameter string for the filename
+            param_string = (f"bs{batch_size}_"
+                          f"lr{learning_rate}_"
+                          f"pos{position}_"
+                          f"epoch{steps[position]}")
+            
+            # Add scales if they're non-default
+            if x_scale != "linear" or y_scale != "linear":
+                param_string += f"_x{x_scale}_y{y_scale}"
+            
+            # Add ymin if it's non-default
+            if ymin != 1e-4:
+                param_string += f"_ymin{ymin}"
+            
+            # Create save path
+            save_path = f'../results/loss_vs_llc_{param_string}'
+            
+            # Save both formats
+            plt.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
+            plt.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
+            plt.show()
