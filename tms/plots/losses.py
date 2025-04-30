@@ -7,7 +7,7 @@ import torch.nn as nn
 
 import numpy as np
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import warnings
 from collections import defaultdict
 
@@ -15,6 +15,7 @@ from tms.models.autoencoder import ToyAutoencoder
 from tms.data.dataset import SyntheticBinaryValued
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
+import pandas as pd
 
 def plot_results_by_indices(results, indices):
     """
@@ -131,23 +132,16 @@ def collect_global_sparsities(df_results_pairs):
     return sorted(sparsities)
 
 
-def create_color_mapping(sparsities, cmap_name="Blues_r"):
-    color_norm = mcolors.Normalize(vmin=min(sparsities), vmax=max(sparsities))
-    cmap = cm.get_cmap(cmap_name)
-    return {s: cmap(color_norm(s)) for s in sparsities}
+def create_color_mapping(sparsities):
+    cmap = plt.get_cmap("tab10")  
+    n_colors = cmap.N 
+
+    return {s: cmap(i % n_colors) for i, s in enumerate(sorted(sparsities))}
 
 
-def preaggregate_llc(llc_estimates):
-    return (
-        llc_estimates
-        .query("t_sgld > 150 & llc_type != 'mean'")
-        .groupby(['index', 'batch_size', 'lr', 'snapshot_index'])['llc']
-        .mean()
-        .to_dict()
-    )
+DfResultPair =  Tuple[pd.DataFrame, Dict[str, Any]]
 
-
-def plot_for_position(position, df_results_pairs, preaggs, batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin):
+def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPair], batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin):
     fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
     if len(df_results_pairs) == 1:
         axes = [axes]
@@ -155,16 +149,26 @@ def plot_for_position(position, df_results_pairs, preaggs, batch_size, learning_
     for pair_index, (llc_estimates, results) in enumerate(df_results_pairs):
         llc_loss_by_sparsity = defaultdict(list)
         steps = get_first(results)['parameters']['log_ivl']
-        preagg = preaggs[pair_index]
 
+        # llc_estimates_dict = llc_estimates.to_dict()
+
+        llc_estimates_dict = {
+            (row['index'], row['batch_size'], row['lr'], row['snapshot_index']): row['llc']
+            for _, row in llc_estimates.iterrows()
+        }
         for result in iterate_container(results):
             index = result["run_id"]
             sparsity = results[index]['parameters']['sparsity']
             if sparsity == 0:
                 continue
-            llc = preagg.get((index, batch_size, learning_rate, position), np.nan)
+            llc = llc_estimates_dict.get((index, batch_size, learning_rate, position), np.nan)
+            # print llc indices:
+            # print(index, batch_size, learning_rate, position)
             loss = results[index]['logs']['loss'].values[position]
             llc_loss_by_sparsity[sparsity].append((llc, loss))
+            # print("Sparsity:", sparsity)
+            # print("loss:", loss)
+            # print("llc:", llc)
 
         for sparsity, llc_loss in llc_loss_by_sparsity.items():
             arr = np.asarray(llc_loss)
@@ -175,7 +179,11 @@ def plot_for_position(position, df_results_pairs, preaggs, batch_size, learning_
             color = sparsity_to_color.get(sparsity, 'gray')
             axes[pair_index].scatter(llcs, losses, label=f"Sparsity: {round(sparsity, 3)}", color=color)
 
-        axes[pair_index].set_title(f"Pair {pair_index}: Position {position}")
+        if pair_index == 0:
+            title = "Initialized at random 4-gon"
+        if pair_index == 1:
+            title = "Initialized at optimal parameters for sparse inputs"
+        axes[pair_index].set_title(f"Pair {title}, Position {position}")
         axes[pair_index].set_xlabel("LLC")
         axes[pair_index].set_ylabel("Loss")
         axes[pair_index].legend()
@@ -191,7 +199,7 @@ def plot_for_position(position, df_results_pairs, preaggs, batch_size, learning_
 
 
 def compare_dataframes_and_results(
-    df_results_pairs,
+    df_results_pairs: Tuple[DfResultPair, DfResultPair],
     positions=[9, 18, 27, 36, 45],
     hyperparam_combos=[(300, 0.001)],
     x_scale="linear",
@@ -210,13 +218,12 @@ def compare_dataframes_and_results(
         print(f"Batch size: {batch_size}, Learning rate: {learning_rate}\n")
 
         # Preaggregate all pairs
-        preaggs = [preaggregate_llc(est) for est, _ in df_results_pairs]
+        # preaggs = [preaggregate_llc(est) for est, _ in df_results_pairs]
 
         for position in positions:
             fig, step = plot_for_position(
                 position,
                 df_results_pairs,
-                preaggs,
                 batch_size,
                 learning_rate,
                 sparsity_to_color,

@@ -288,3 +288,31 @@ def get_llc_data(results, version, data_directory):
     llc_data = pd.concat(dfs, ignore_index=True)
     logger.debug(f"LLC data shape: {llc_data.shape}")
     return llc_data
+
+
+def preaggregate_llc(llc_estimates):
+    return (
+        llc_estimates
+        .query("t_sgld > 150 & llc_type != 'mean'")
+        .groupby(['index', 'batch_size', 'lr', 'snapshot_index'])['llc']
+        .mean()
+    )
+
+def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
+    """Load preaggregated LLC values from CSV, or generate and save them."""
+    preagg_path = os.path.join(data_dir, f"llc_preagg_{version}.csv")
+    
+    if os.path.exists(preagg_path):
+        print(f"Loading preaggregated LLC from {preagg_path}")
+        return pd.read_csv(preagg_path)
+    
+    print("Preaggregated file not found — computing from raw results...")
+    llc_estimates = get_llc_data(results, version, data_dir)
+
+    # Preaggregate (returns dict), convert to DataFrame for CSV
+    preagg = preaggregate_llc(llc_estimates)
+
+    print(f"Saving preaggregated LLC to {preagg_path}")
+    preagg.to_csv(preagg_path, index=False)
+
+    return preagg
