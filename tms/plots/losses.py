@@ -206,8 +206,8 @@ def compare_dataframes_and_results(
     y_scale="linear",
     sharey=False,
     sharex=False,
-    ymin=1e-4
-    save_path=f'../results/loss_vs_llc_{param_string}'
+    ymin=1e-4,
+    result_path='../results'
 ):
     warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -241,7 +241,7 @@ def compare_dataframes_and_results(
             if ymin != 1e-4:
                 param_string += f"_ymin{ymin}"
 
-
+            save_path = f'{result_path}/loss_vs_llc_{param_string}'
             fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
             fig.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
             plt.show()
