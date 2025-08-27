@@ -302,7 +302,7 @@ training_dicts = {
         "data_generating_class": [SyntheticBinarySparseValued],
     },
     "1.15.0":
-    # Similar 1.13, but prior_std is 1.0
+    # Same as 1.13. Was supposed to have prior std 1.0, but I forgot to change it back when copying the dictionary.
     {
         "m": [6],
         "n": [2],
