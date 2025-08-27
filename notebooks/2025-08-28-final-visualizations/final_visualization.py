@@ -3,6 +3,7 @@ import warnings
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.patches as patches
 
 import numpy as np
 import pandas as pd
@@ -90,6 +91,8 @@ llc_estimates_random_init = llc_estimates_1_13
 
 results_optimal_init = results_1_14
 llc_estimates_optimal_init = llc_estimates_1_14
+
+result_path = '../../results/'
 
 # %%
 compare_dataframes_and_results(
@@ -240,7 +243,7 @@ def compare_dataframes_by_sparsity(
             if ymin != 1e-4:
                 param_string += f"_ymin{ymin}"
 
-            save_path = f'../../results/loss_vs_llc_by_sparsity_{param_string}'
+            save_path = f'{result_path}loss_vs_llc_by_sparsity_{param_string}'
             fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
             fig.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
             plt.show()
@@ -1398,7 +1401,7 @@ def create_classification_summary(classifications):
     
     return by_sparsity
 
-def create_annotated_dendrogram(results,save_path="annotated_dendrogram.svg", 
+def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg", 
                                figsize=(30, 20), dpi=300):
 # def create_annotated_dendrogram(Z, classifications, ):
     """
@@ -1516,7 +1519,7 @@ quick_classification_test(results_1_13, n_models=50)
 
 # create_dendrogram_visualization_mimimum(loss_matrix, info=f'{sparsities[i][0]:.3f}')
 small_results = results_random_init[:10]
-create_annotated_dendrogram(small_results,save_path=f"annotated_dendrogram_small.svg")
+create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
 
 # %%
 
@@ -1524,11 +1527,11 @@ create_annotated_dendrogram(small_results,save_path=f"annotated_dendrogram_small
 small_results = results_random_init[:10]
 loss_matrix, _, sparsity = create_loss_matrix_simple(small_results, 10)
 Z, distances = create_permutation_invariant_dendrogram(loss_matrix)
-create_annotated_dendrogram(Z, classifications = classify_all_solutions(small_results, sparsity),save_path=f"annotated_dendrogram_small.svg")
+create_annotated_dendrogram(Z, classifications = classify_all_solutions(small_results, sparsity),save_path=f"{result_path}annotated_dendrogram_small.svg")
 
 # %%
 for i in range(10):
-    create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"annotated_dendrogram_{i}.svg")
+    create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg")
 
 # %%
 Z, distances = create_permutation_invariant_dendrogram(large_loss_matrix[:,:10])
@@ -1536,5 +1539,5 @@ Z, distances = create_permutation_invariant_dendrogram(large_loss_matrix[:,:10])
 # %%
 create_annotated_dendrogram(Z, 
                             classifications=classify_all_solutions(results_1_13, large_sparsities),
-                            save_path="large_dendrogram.svg",
+                            save_path="{result_path}large_dendrogram.svg",
                             figsize=(30, 20), dpi=300)
