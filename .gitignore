@@ -169,7 +169,6 @@ cython_debug/
 !data/logs_loss_*_all_runs.pkl
 
 # ignore results directories
-results/*
 results_backup/
 
 # editor
