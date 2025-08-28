@@ -846,8 +846,9 @@ def main():
 
     # version = "1.15.0"
 
-    results_1_15= load_results(data_path, version)
-    llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+    # results_1_15= load_results(data_path, version)
+    # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+
     # for index in range(1000):
     for index in [0]:
         plot_specific_index(results_random_init, index)
