@@ -38,7 +38,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.cluster.hierarchy import linkage, dendrogram
 import time
 
-result_path="../../results"
+plot_path="../../results"
 
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
@@ -195,7 +195,7 @@ def compare_dataframes_by_sparsity(
             if ymin != 1e-4:
                 param_string += f"_ymin{ymin}"
 
-            save_path = f'{result_path}loss_vs_llc_by_sparsity_{param_string}'
+            save_path = f'{plot_path}loss_vs_llc_by_sparsity_{param_string}'
             fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
             fig.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
             plt.show()
@@ -855,7 +855,7 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
     
     return classifications
 
-def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg",
+def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrogram.svg",
                                figsize=(30, 20), dpi=300):
     """
     Create a large annotated dendrogram with k-gon and bias information.
@@ -913,7 +913,7 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
     return fig, ax
 
 def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
-    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init)), ymin=0, plot=False)
+    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init)), ymin=0, plot=False, result_path=plot_path)
 
     plot_kgon_percentages(
         results_random_init
@@ -927,10 +927,10 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     sparsities=[]
     small_results = results_random_init[:10]
 
-    create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
+    create_annotated_dendrogram(small_results,save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
     for i in range(10):
-        create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
+        create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{plot_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
 
 def main():
     data_path = "../../data"
