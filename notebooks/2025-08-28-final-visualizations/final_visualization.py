@@ -1,42 +1,42 @@
-# Above we are adding this autoreload magic command, so we can make changes to tms and it will load them correctly
 import warnings
-from collections import defaultdict
+
+from collections import defaultdict, Counter
+
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib.patches as patches
-import matplotlib.colors as mcolors
 
 import numpy as np
 import pandas as pd
+
 from scipy.spatial import ConvexHull
+
 import torch
-import torch.nn as nn
 import os
+
 from typing import List, Dict, Any, Tuple
 
 from tms.utils.utils import load_results, get_first, iterate_container
-from tms.training.experiments import run_experiments
-from tms.utils.utils import generate_sparsity_values
-from tms.data.dataset import SyntheticBinaryValued
 from tms.models.autoencoder import ToyAutoencoder
-from tms.llc import estimate_llc, get_llc_data, preaggregate_llc
+from tms.llc import get_llc_data, preaggregate_llc
 from tms.plots.kgons import plot_losses_and_polygons
-from tms.plots.losses import compare_dataframes_and_results
+from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair
 
 
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
 
 from tms.models.autoencoder import ToyAutoencoder
-from tms.data.dataset import SyntheticBinaryValued
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
-import pandas as pd
-Results = Dict[str, Any]
-DfResultPair = Tuple[pd.DataFrame, Results]
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import linear_sum_assignment
+from scipy.cluster.hierarchy import linkage, dendrogram
+import time
 
 # %%
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
@@ -301,24 +301,6 @@ def collect_global_sparsities(df_results_pairs):
     return sorted(sparsities)
 
 
-
-
-# %%
-# compare_dataframes_by_sparsity([(llc_estimates_1_13, results_1_13), (llc_estimates_1_14, results_1_14)], hyperparam_combos=[(300, 0.001)],ymin=1e-2,y_scale='log')
-
-# %% [markdown]
-# - lower left is not really nicely visible. 
-# - Pair of plots for epoch, inside different sparsity
-# - we could also do different sparsities as plots and epochs as colors
-# 
-# What are observations we make:
-# - there seem to be clusters of loss levels, 
-# 
-# Observation:
-# - there is a transition for sparsity 0.67. Hypothesis: Instead of directions it is encoding averages. (Note, it seems the toy models of superposition paper is saying actually something slightly differnet with their prediction?)
-# - competing predictions: you can either get lower loss by only representing a subset of the features, or you can get a lower loss by predicting all of them. (How do we figure out which one makes more sense?)
-
-# %%
 def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
     # loss_hist = []
     for sparse_value in sparsities:
@@ -352,33 +334,10 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
             for idx, ndarray in results[index]['weights'][PLOT_INDICES[-1]].items():
                 new_weights[idx] = torch.from_numpy(ndarray)
 
-            # criterion=nn.MSELoss()
-        
-            # model.load_state_dict(new_weights)
-
-            # # print(sample)
-            # # print(model(sample))
-            # test_set = SyntheticBinaryValued(10000, 6, sparse_value)
-            # mean_loss_test = 0
-            # for sample in test_set:
-            #     output = model(sample)
-            #     mean_loss_test += criterion(output, sample)
-            # # print("Mean loss test:")
-            # loss_hist.append(mean_loss_test)
-            # print(f"index: {index}")
-            # print(mean_loss_test/10000)
-            # # if mean_loss_test<20:
-            # #     continue
-            # # else:
-            # #     weird_indices.append(index)
-            
-
             print(f'index: {index}')
-            #all_weights = [[results[j]['weights'][i] for i in PLOT_INDICES] for j in range(len(results))]
             plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
             plt.show()
 
-# %%
 def plot_specific_index(results, index, step=-1):
     """
     Plot results for a specific index in the results list.
@@ -426,23 +385,10 @@ def plot_specific_index(results, index, step=-1):
 
 
 # %%
-def get_weights(results, index, step=-1):
+def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
     """
     Get the weights of a model at a specific index and timestep.
     
-    Parameters
-    ----------
-    results : list
-        List of experiment results
-    index : int
-        Index of the experiment in results
-    step : int, optional
-        Step index to get weights from. Default is -1 (last step)
-        
-    Returns
-    -------
-    dict
-        Dictionary containing the weights at the specified step
     """
     if index >= len(results):
         raise IndexError(f"Index {index} out of range for results of length {len(results)}")
@@ -455,18 +401,11 @@ def get_weights(results, index, step=-1):
     weights = weights_list[step]
     return weights['embedding.weight'], weights['unembedding.bias']
 
-
 # %%
-def calculate_convex_hull_vertices(W):
+def calculate_convex_hull_vertices(W:torch.Tensor)->int:
 
     """
     Calculate the number of vertices of the convex hull of the points represented by the columns of W.
-    
-    Parameters:
-    W (torch.Tensor): A 2xN matrix where each column represents a point in 2D space.
-    
-    Returns:
-    int: The number of vertices of the convex hull.
     """
     if W.shape[0] != 2:
         raise ValueError("The weight matrix W must have 2 rows.")
@@ -570,11 +509,6 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             
 
 
-# %%
-import matplotlib.pyplot as plt
-import numpy as np
-from collections import Counter
-
 def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001):
     STEPS = results[0]['parameters']['log_ivl']
     NUM_EPOCHS = 20000
@@ -621,15 +555,6 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         plt.show()
 
 
-# %%
-# plot_kgon_percentages(
-#     results_random_init
-# )
-
-# # %%
-# plot_kgon_percentages(
-#     results_optimal_init
-# )
 
 # %%
 def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
@@ -673,45 +598,6 @@ def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobi
         }
     return param
 
-# %%
-
-def get_weights(results, index, step=-1):
-    """
-    Get the weights of a model at a specific index and timestep.
-    """
-    if index >= len(results):
-        raise IndexError(f"Index {index} out of range for results of length {len(results)}")
-    
-    weights_list = results[index]['weights']
-    
-    if step >= len(weights_list):
-        raise IndexError(f"Step {step} out of range for weights list of length {len(weights_list)}")
-    
-    weights = weights_list[step]
-    embedding_weight = torch.from_numpy(weights['embedding.weight']).float()
-    unembedding_bias = torch.from_numpy(weights['unembedding.bias']).float()
-    
-    return embedding_weight, unembedding_bias
-
-def test_get_weights(results):
-    """Test the get_weights function"""
-    print("=== Testing get_weights ===")
-    try:
-        W, b = get_weights(results, 0)
-        print(f"✓ Model 0 weights shape: {W.shape}, bias shape: {b.shape}")
-        
-        W2, b2 = get_weights(results, 1)
-        print(f"✓ Model 1 weights shape: {W2.shape}, bias shape: {b2.shape}")
-        
-        # Test that different models have different weights
-        weights_different = not torch.allclose(W, W2)
-        print(f"✓ Different models have different weights: {weights_different}")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Error: {e}")
-        return False
-
 def autoencoder_forward(input_vec, W, b):
     """
     Single forward pass: output = W.T @ (W @ input_vec) + b
@@ -728,32 +614,6 @@ def autoencoder_forward(input_vec, W, b):
     output = torch.relu(decoded + b)       # (6,) + (6,) = (6,)
     return output
 
-def test_autoencoder_forward():
-    """Test the autoencoder forward pass"""
-    print("\n=== Testing autoencoder_forward ===")
-    
-    # Create test data with correct dimensions
-    W = torch.randn(2, 6)  # Encoder weights: (latent_dim, input_dim)
-    b = torch.randn(6)     # Bias for reconstruction
-    input_vec = torch.tensor([1., 0., 0., 0., 0., 0.])
-    
-    try:
-        output = autoencoder_forward(input_vec, W, b)
-        print(f"✓ Forward pass successful, output shape: {output.shape}")
-        
-        # Test with different input
-        input_vec2 = torch.tensor([0., 1., 0., 0., 0., 0.])
-        output2 = autoencoder_forward(input_vec2, W, b)
-        
-        # Outputs should be different for different inputs
-        outputs_different = not torch.allclose(output, output2)
-        print(f"✓ Different inputs give different outputs: {outputs_different}")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Error: {e}")
-        return False
-
 def generate_all_inputs():
     """Generate all 64 possible 6-bit binary inputs"""
     all_inputs = []
@@ -762,24 +622,6 @@ def generate_all_inputs():
         input_vec = torch.tensor([float(int(b)) for b in binary])
         all_inputs.append(input_vec)
     return all_inputs
-
-def test_generate_all_inputs():
-    """Test input generation"""
-    print("\n=== Testing generate_all_inputs ===")
-    
-    inputs = generate_all_inputs()
-    print(f"✓ Generated {len(inputs)} inputs")
-    
-    # Check first few
-    print(f"✓ Input 0: {inputs[0].numpy()}")  # Should be [0,0,0,0,0,0]
-    print(f"✓ Input 1: {inputs[1].numpy()}")  # Should be [0,0,0,0,0,1]
-    print(f"✓ Input 63: {inputs[63].numpy()}")  # Should be [1,1,1,1,1,1]
-    
-    # Check all are different
-    unique_inputs = len(set([tuple(inp.numpy()) for inp in inputs]))
-    print(f"✓ All inputs unique: {unique_inputs == 64}")
-    
-    return inputs
 
 def create_loss_matrix_simple(results, max_models=200, step=-1):
     """
@@ -819,32 +661,6 @@ def create_loss_matrix_simple(results, max_models=200, step=-1):
             sparsities.append(float('nan'))
     
     return loss_matrix.numpy(), all_inputs, np.array(sparsities)
-
-def test_loss_matrix(results):
-    """Test loss matrix creation"""
-    print("\n=== Testing loss matrix creation ===")
-    
-    # Test with just 3 models first
-    loss_matrix, inputs, sparsities = create_loss_matrix_simple(results, max_models=3)
-    
-    print(f"✓ Loss matrix shape: {loss_matrix.shape}")
-    print(f"✓ Sparsities shape: {sparsities.shape}")
-    
-    # Check for variation
-    loss_variance_across_models = np.var(loss_matrix, axis=1)
-    loss_variance_across_inputs = np.var(loss_matrix, axis=0)
-    
-    print(f"✓ Loss variance across models (first 5): {loss_variance_across_models[:5]}")
-    print(f"✓ Loss variance across inputs (all 3): {loss_variance_across_inputs}")
-    
-    # Check if we have variation (not all zeros/identical)
-    has_model_variation = np.any(loss_variance_across_models > 0.001)
-    has_input_variation = np.any(loss_variance_across_inputs > 0.001)
-    
-    print(f"✓ Has variation across models: {has_model_variation}")
-    print(f"✓ Has variation across inputs: {has_input_variation}")
-    
-    return loss_matrix, inputs, sparsities
 
 def visualize_first_sparsity(results, max_models=200):
     """
@@ -932,54 +748,9 @@ def visualize_first_sparsity(results, max_models=200):
     
     return loss_matrix, sparsities
 
-def run_all_tests(results):
-    """Run all test functions"""
-    print("🧪 Running all tests...\n")
-    
-    # Test individual functions
-    test1 = test_get_weights(results)
-    test2 = test_autoencoder_forward()
-    test3 = test_generate_all_inputs()
-    test4 = test_loss_matrix(results)
-    
-    print(f"\n📊 Test Results:")
-    print(f"✓ get_weights: {test1}")
-    print(f"✓ autoencoder_forward: {test2}")
-    print(f"✓ generate_all_inputs: {test3}")
-    print(f"✓ loss_matrix: {test4}")
-    
-    if all([test1, test2, test3, test4]):
-        print("\n🎉 All tests passed! Running full visualization...")
-        return visualize_first_sparsity(results, max_models=2000)  # Pass max_models explicitly
-    else:
-        print("\n❌ Some tests failed. Fix issues before proceeding.")
-        return None
-
-# Example usage:
-#loss_matrix, sparsities = run_all_tests(results)
-
-# %%
-loss_matrices=[]
-sparsities=[]
-for i in range(10):
-    loss_matrix,_, sparsity = create_loss_matrix_simple(results_1_13[i*200:(i+1)*200], 200)
-    loss_matrices.append(loss_matrix)
-    sparsities.append(sparsity)
-
-# %%
-import numpy as np
-from itertools import permutations
-import matplotlib.pyplot as plt
-from scipy.optimize import linear_sum_assignment
-from scipy.spatial.distance import pdist, squareform
-from scipy.cluster.hierarchy import linkage, dendrogram
-import time
-
 def permutation_invariant_distance_hungarian(pattern1, pattern2, metric='euclidean'):
     """
-    Compute minimum distance using Hungarian algorithm (O(n³)).
-    
-    This is faster for larger n, but for n=6 brute force is fine.
+    Compute minimum distance using Hungarian algorithm (O(n³)). Faster than brute force even for n=6.
     """
     pattern1 = np.array(pattern1)
     pattern2 = np.array(pattern2)
@@ -1078,68 +849,6 @@ def create_permutation_invariant_dendrogram(loss_matrix, metric='euclidean'):
     
     return Z, distances
 
-# # %%
-# large_loss_matrix, large_sparsities = visualize_first_sparsity(results_1_13, max_models=2000)
-
-def calculate_convex_hull_vertices(W):
-    """
-    Calculate the number of vertices of the convex hull of the points represented by the columns of W.
-    
-    Parameters:
-    W (torch.Tensor): A 2xN matrix where each column represents a point in 2D space.
-    
-    Returns:
-    int: The number of vertices of the convex hull.
-    """
-    if W.shape[0] != 2:
-        raise ValueError("The weight matrix W must have 2 rows.")
-    
-    # Convert the tensor to a numpy array if it isn't already
-    if isinstance(W, torch.Tensor):
-        W = W.cpu().detach().numpy()
-    
-    hull = ConvexHull(W.T)
-    return len(hull.vertices)
-
-def classify_5_gon(W, b, differentiate_5_plus=False):
-    """
-    Classify a 5-gon based on the weights and biases. 
-    """
-    # Convert tensor to numpy if it isn't already
-    if isinstance(W, torch.Tensor):
-        W = W.cpu().detach().numpy()
-    
-    if W.shape[0] == 2:
-        W = W.T
-    # Compute the convex hull
-    hull = ConvexHull(W)
-    
-    # Check if the number of vertices is equal to 5
-    if len(hull.vertices) != 5:
-        return "not a 5-gon"
-    
-    # Convert biases to a numpy array if it isn't already
-    if isinstance(b, torch.Tensor):
-        b = b.cpu().detach().numpy()
-    # Check if any of the non-vertex biases are large negative
-    non_vertex_biases = np.delete(b, hull.vertices)
-    # Check for any positive bias that is not part of the convex hull vertices
-    non_hull_positive_bias = np.any(non_vertex_biases > 0)
-    if not non_hull_positive_bias:
-        return 5
-    elif non_hull_positive_bias and differentiate_5_plus:
-        return "5+"
-    elif non_hull_positive_bias and not differentiate_5_plus:
-        return 5
-    else:
-        return 'not a 5-gon'
-
-def classify_kgon(W):
-    embedding_w = W["embedding.weight"]
-    edges = calculate_convex_hull_vertices(embedding_w)
-    if edges == 5:
-        return classify_5_gon(embedding_w, W["unembedding.bias"])
-    return edges
 
 def analyze_biases(bias_vector, epsilon=0.1):
     """
@@ -1338,43 +1047,36 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
     
     return fig, ax
 
-def quick_classification_test(results, n_models=50):
-    """
-    Quick test on first n_models to verify the classification works.
-    """
-    print(f"Testing classification on first {n_models} models...")
-    
-    test_results = results[:n_models]
-    sparsities = [r['parameters']['sparsity'] for r in test_results]
-    
-    classifications = classify_all_solutions(test_results, sparsities)
-    summary = create_classification_summary(classifications)
-    
-    return classifications, summary
-
-# Example usage
-if __name__ == "__main__":
-    print("K-gon Classification and Analysis Tool")
-    print("Usage:")
-    print("1. classifications = classify_all_solutions(results, sparsities)")
-    print("2. summary = create_classification_summary(classifications)")
-    print("3. create_annotated_dendrogram(Z, classifications, 'large_dendrogram.svg')")
-    print("4. Or test first: quick_classification_test(results, n_models=50)")
-
-# %%
-quick_classification_test(results_1_13, n_models=50)
-
-# %%
-
-# create_dendrogram_visualization_mimimum(loss_matrix, info=f'{sparsities[i][0]:.3f}')
-small_results = results_random_init[:10]
-create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
 
 
 for i in range(10):
     create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
 
-main()
+
+def plot_everything(results_random_init: Results, llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame, result_path="../../result"):
+    compare_dataframes_and_results((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init))
+
+
+    %%
+    plot_kgon_percentages(
+        results_random_init
+    )
+
+    # %%
+    plot_kgon_percentages(
+        results_optimal_init
+    )
+
+    loss_matrices=[]
+    sparsities=[]
+    for i in range(10):
+        loss_matrix,_, sparsity = create_loss_matrix_simple(results_1_13[i*200:(i+1)*200], 200)
+        loss_matrices.append(loss_matrix)
+        sparsities.append(sparsity)
+    small_results = results_random_init[:10]
+    create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
+
+def main():
     data_path = "../../data"
     version = "1.8.0"
 
@@ -1416,8 +1118,6 @@ main()
 
     results_optimal_init = results_1_14
     llc_estimates_optimal_init = llc_estimates_1_14
-
-    result_path = '../../results/'
-
+    #TODO: check results from get_weights
 
 main()
