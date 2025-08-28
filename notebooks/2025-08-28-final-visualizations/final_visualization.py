@@ -593,20 +593,18 @@ def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobi
     return param
 
 def autoencoder_forward(input_vec, W, b):
-    """
-    Single forward pass: output = W.T @ (W @ input_vec) + b
-    
-    W is shape (2, 6) - encoder weights
-    For autoencoder: encode with W, decode with W.T
-    """
-    # W is (2, 6), input_vec is (6,)
-    # Encode: W @ input_vec 
-    encoded = W @ input_vec    # (2, 6) @ (6,) = (2,)
-    # Decode: W.T @ encoded
-    decoded = W.T @ encoded    # (6, 2) @ (2,) = (6,)
-    # Add bias
-    output = torch.relu(decoded + b)       # (6,) + (6,) = (6,)
-    return output
+    # ensure torch, correct dtypes and shapes
+    if isinstance(W, np.ndarray): W = torch.from_numpy(W)
+    if isinstance(b, np.ndarray): b = torch.from_numpy(b)
+    if isinstance(input_vec, np.ndarray): input_vec = torch.from_numpy(input_vec)
+
+    W = W.float()                 # (2, 6)
+    b = b.float().view(-1)        # (6,)
+    x = input_vec.float().view(-1)  # (6,)
+
+    encoded = W @ x               # (2,)
+    decoded = W.t() @ encoded     # (6,)
+    return torch.relu(decoded + b)
 
 def generate_all_inputs():
     """Generate all 64 possible 6-bit binary inputs"""
