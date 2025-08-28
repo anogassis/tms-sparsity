@@ -208,7 +208,8 @@ def compare_dataframes_and_results(
     sharey=False,
     sharex=False,
     ymin=1e-4,
-    result_path='../results'
+    result_path='../results',
+    plot:bool=True,
 ):
     warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -245,5 +246,5 @@ def compare_dataframes_and_results(
             save_path = f'{result_path}/loss_vs_llc_{param_string}'
             fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
             fig.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
-            plt.show()
-
+            if plot:
+                plt.show()
