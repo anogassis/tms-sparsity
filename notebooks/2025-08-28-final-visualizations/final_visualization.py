@@ -4,6 +4,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.patches as patches
+import matplotlib.colors as mcolors
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,21 @@ from tms.models.autoencoder import ToyAutoencoder
 from tms.llc import estimate_llc, get_llc_data, preaggregate_llc
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.plots.losses import compare_dataframes_and_results
+
+
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+
+from tms.models.autoencoder import ToyAutoencoder
+from tms.data.dataset import SyntheticBinaryValued
+from tms.plots.kgons import plot_losses_and_polygons
+from tms.utils.utils import iterate_container, get_first
+import pandas as pd
+Results = Dict[str, Any]
+DfResultPair = Tuple[pd.DataFrame, Results]
 
 # %%
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
@@ -47,79 +63,6 @@ def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) ->
     return preagg_df
 
 # %%
-
-data_path = "../../data/"
-version = "1.8.0"
-
-results_1_8= load_results(data_path, version)
-llc_estimates_1_8 = get_or_create_preaggregated_llc_csv(results_1_8, version, data_path)
-
-version = "1.7.0"
-
-results_1_7= load_results(data_path, version)
-llc_estimates_1_7 = get_or_create_preaggregated_llc_csv(results_1_7, version, data_path)
-
-version = "1.11.0"
-
-results_1_11= load_results(data_path, version)
-llc_estimates_1_11 = get_or_create_preaggregated_llc_csv(results_1_11, version, data_path)
-
-version = "1.12.0"
-
-results_1_12= load_results(data_path, version)
-llc_estimates_1_12 = get_or_create_preaggregated_llc_csv(results_1_12, version, data_path)
-
-version = "1.13.0"
-
-results_1_13= load_results(data_path, version)
-llc_estimates_1_13 = get_or_create_preaggregated_llc_csv(results_1_13, version, data_path)
-
-version = "1.14.0"
-
-results_1_14= load_results(data_path, version)
-llc_estimates_1_14 = get_or_create_preaggregated_llc_csv(results_1_14, version, data_path)
-
-version = "1.15.0"
-
-results_1_15= load_results(data_path, version)
-llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
-
-
-# %%
-results_random_init = results_1_13
-llc_estimates_random_init = llc_estimates_1_13
-
-results_optimal_init = results_1_14
-llc_estimates_optimal_init = llc_estimates_1_14
-
-result_path = '../../results/'
-
-# %%
-compare_dataframes_and_results(
-    [(llc_estimates_1_13, results_1_13), (llc_estimates_1_14, results_1_14)], result_path='../../results', ymin=-0.01
-)
-
-# %%
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
-
-import torch
-import torch.nn as nn
-
-import numpy as np
-
-from typing import Any, Dict, List, Tuple
-import warnings
-from collections import defaultdict
-
-from tms.models.autoencoder import ToyAutoencoder
-from tms.data.dataset import SyntheticBinaryValued
-from tms.plots.kgons import plot_losses_and_polygons
-from tms.utils.utils import iterate_container, get_first
-import pandas as pd
-Results = Dict[str, Any]
-DfResultPair = Tuple[pd.DataFrame, Results]
 
 def create_position_color_mapping(positions):
     """Create color mapping for different positions/timesteps."""
@@ -361,7 +304,7 @@ def collect_global_sparsities(df_results_pairs):
 
 
 # %%
-compare_dataframes_by_sparsity([(llc_estimates_1_13, results_1_13), (llc_estimates_1_14, results_1_14)], hyperparam_combos=[(300, 0.001)],ymin=1e-2,y_scale='log')
+# compare_dataframes_by_sparsity([(llc_estimates_1_13, results_1_13), (llc_estimates_1_14, results_1_14)], hyperparam_combos=[(300, 0.001)],ymin=1e-2,y_scale='log')
 
 # %% [markdown]
 # - lower left is not really nicely visible. 
@@ -679,14 +622,14 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
 
 
 # %%
-plot_kgon_percentages(
-    results_random_init
-)
+# plot_kgon_percentages(
+#     results_random_init
+# )
 
-# %%
-plot_kgon_percentages(
-    results_optimal_init
-)
+# # %%
+# plot_kgon_percentages(
+#     results_optimal_init
+# )
 
 # %%
 def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
@@ -730,75 +673,7 @@ def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobi
         }
     return param
 
-def generate_optimal_solution(m,n,rot=0.0):
-    assert m == 2
-    assert n==6 # Possibly implement other values of n later. See page 46 of dynamical bayseanism paper and code that automatically finds solution(s).
-    # Solutions exist for multiples of 4 and 5,6 and 7
-    if n == 6:
-        l =1.4142 # confusion: I get as the optimal parameter for the length: 1.4142, but the paper says 1.32053
-        init_b = - np.ones((n,1)) *0.9999 # confusion: I get through training, that the optimal bias is -0.9999 instead of 0.61814
-        
-
-    init_w = generate_2d_kgon_vertices(n, rot=rot, force_length=l, pad_to=n)
-    param = {
-        "W": init_w,
-        "b": init_b
-    }
-    return param
-
 # %%
-
-m = 6
-n = 2
-l = 1.4142
-b = -1
-
-w = torch.from_numpy(generate_2d_kgon_vertices(m, rot=0., force_length=l, pad_to=m)).float()
-bias = torch.ones((m)) * b
-
-sample = torch.tensor([1,0,0,0,0,0]).float()
-
-print(sample)
-output =(w.T  @ ( w @ sample)) + b
-print(output)
-
-
-
-# %%
-model = lambda w, b: (lambda sample:(torch.Tensor(w).T  @ ( torch.Tensor(w) @ torch.Tensor(sample))) + torch.Tensor(b))
-
-# %%
-from tms.data.dataset import SyntheticBinarySparseValued
-
-# %%
-dataset = SyntheticBinarySparseValued(num_samples=1000, num_features=6, sparsity=0.42)
-
-# %%
-dataset[0]
-
-# %%
-w, b = get_weights(results_1_13, 0)
-
-# %%
-sample = torch.tensor([1,0,0,0,0,0]).float()
-
-# %%
-plot_specific_index(results_1_13, 0)
-
-# %% [markdown]
-# How do I qualify this solution? I guess we have the loss space:
-# params -> loss (given dataset)
-# We could also look at given 
-
-# %%
-model(w,b)(dataset[0])
-
-# %%
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
 
 def get_weights(results, index, step=-1):
     """
@@ -1203,8 +1078,8 @@ def create_permutation_invariant_dendrogram(loss_matrix, metric='euclidean'):
     
     return Z, distances
 
-# %%
-large_loss_matrix, large_sparsities = visualize_first_sparsity(results_1_13, max_models=2000)
+# # %%
+# large_loss_matrix, large_sparsities = visualize_first_sparsity(results_1_13, max_models=2000)
 
 def calculate_convex_hull_vertices(W):
     """
@@ -1401,9 +1276,8 @@ def create_classification_summary(classifications):
     
     return by_sparsity
 
-def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg", 
+def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg", save:bool=False, plot:bool=True,
                                figsize=(30, 20), dpi=300):
-# def create_annotated_dendrogram(Z, classifications, ):
     """
     Create a large annotated dendrogram with k-gon and bias information.
     
@@ -1431,40 +1305,13 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
         cls = classifications[idx]
         return f"M{cls['model_index']}_{cls['kgon_type']}-gon_S:{cls['sparsity']:.3f}_{cls['bias_pattern']}"
     # Create dendrogram
-    dend = dendrogram(Z, ax=ax, leaf_rotation=90, leaf_font_size=8)
-    leaves = dend['leaves']
+    dend = dendrogram(Z, ax=ax, leaf_rotation=90, leaf_font_size=8, leaf_label_func=ann)
+    # leaves = dend['leaves']
     
     # Create color map for k-gon types
     unique_kgons = list(set([c['kgon_type'] for c in classifications]))
     colors = plt.cm.Set3(np.linspace(0, 1, len(unique_kgons)))
     kgon_color_map = dict(zip(unique_kgons, colors))
-    
-    # Annotate leaves
-    leaf_positions = np.arange(len(leaves)) * 10  # Position along x-axis
-    
-    for i, leaf_idx in enumerate(leaves):
-        if leaf_idx < len(classifications):
-            cls = classifications[leaf_idx]
-            
-            # Position for annotation
-            x_pos = i * 10
-            y_pos = -0.05 * ax.get_ylim()[1]  # Below the dendrogram
-            
-            # K-gon type annotation
-            kgon_color = kgon_color_map[cls['kgon_type']]
-            
-            # Create annotation text
-            annotation = f"M{cls['model_index']}_{cls['kgon_type']}-gon_S:{cls['sparsity']:.3f}_{cls['bias_pattern']}"
-            
-            # Add colored rectangle for k-gon type
-            rect = patches.Rectangle((x_pos - 4, y_pos - 0.02 * ax.get_ylim()[1]), 
-                                   8, 0.01 * ax.get_ylim()[1], 
-                                   facecolor=kgon_color, alpha=0.7)
-            ax.add_patch(rect)
-            
-            # Add text annotation
-            ax.text(x_pos, y_pos - 0.03 * ax.get_ylim()[1], annotation, 
-                   ha='center', va='top', fontsize=6, rotation=90)
     
     # Create legend for k-gon types
     legend_elements = []
@@ -1483,9 +1330,11 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
     plt.tight_layout()
     
     # Save as SVG
-    print(f"Saving annotated dendrogram to {save_path}...")
-    plt.savefig(save_path, format='svg', dpi=dpi, bbox_inches='tight')
-    plt.show()
+    if save:
+        print(f"Saving annotated dendrogram to {save_path}...")
+        plt.savefig(save_path, format='svg', dpi=dpi, bbox_inches='tight')
+    if plot:
+        plt.show()
     
     return fig, ax
 
@@ -1521,23 +1370,54 @@ quick_classification_test(results_1_13, n_models=50)
 small_results = results_random_init[:10]
 create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
 
-# %%
 
-# create_dendrogram_visualization_mimimum(loss_matrix, info=f'{sparsities[i][0]:.3f}')
-small_results = results_random_init[:10]
-loss_matrix, _, sparsity = create_loss_matrix_simple(small_results, 10)
-Z, distances = create_permutation_invariant_dendrogram(loss_matrix)
-create_annotated_dendrogram(Z, classifications = classify_all_solutions(small_results, sparsity),save_path=f"{result_path}annotated_dendrogram_small.svg")
-
-# %%
 for i in range(10):
-    create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg")
+    create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
 
-# %%
-Z, distances = create_permutation_invariant_dendrogram(large_loss_matrix[:,:10])
+main()
+    data_path = "../../data"
+    version = "1.8.0"
 
-# %%
-create_annotated_dendrogram(Z, 
-                            classifications=classify_all_solutions(results_1_13, large_sparsities),
-                            save_path="{result_path}large_dendrogram.svg",
-                            figsize=(30, 20), dpi=300)
+    results_1_8= load_results(data_path, version)
+    llc_estimates_1_8 = get_or_create_preaggregated_llc_csv(results_1_8, version, data_path)
+
+    version = "1.7.0"
+
+    results_1_7= load_results(data_path, version)
+    llc_estimates_1_7 = get_or_create_preaggregated_llc_csv(results_1_7, version, data_path)
+
+    version = "1.11.0"
+
+    results_1_11= load_results(data_path, version)
+    llc_estimates_1_11 = get_or_create_preaggregated_llc_csv(results_1_11, version, data_path)
+
+    version = "1.12.0"
+
+    results_1_12= load_results(data_path, version)
+    llc_estimates_1_12 = get_or_create_preaggregated_llc_csv(results_1_12, version, data_path)
+
+    version = "1.13.0"
+
+    results_1_13= load_results(data_path, version)
+    llc_estimates_1_13 = get_or_create_preaggregated_llc_csv(results_1_13, version, data_path)
+
+    version = "1.14.0"
+
+    results_1_14= load_results(data_path, version)
+    llc_estimates_1_14 = get_or_create_preaggregated_llc_csv(results_1_14, version, data_path)
+
+    version = "1.15.0"
+
+    results_1_15= load_results(data_path, version)
+    llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+
+    results_random_init = results_1_13
+    llc_estimates_random_init = llc_estimates_1_13
+
+    results_optimal_init = results_1_14
+    llc_estimates_optimal_init = llc_estimates_1_14
+
+    result_path = '../../results/'
+
+
+main()
