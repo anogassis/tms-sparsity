@@ -783,17 +783,17 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path)
 
     EPSILON_KGON=0.05
-    plot_kgon_percentages(
-        results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
-    )
+    # plot_kgon_percentages(
+    #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
+    # )
 
     plot_kgon_percentages(
         results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
     )
 
-    plot_kgon_percentages(
-        results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
-    )
+    # plot_kgon_percentages(
+    #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
+    # )
     plot_kgon_percentages(
         results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
     )
