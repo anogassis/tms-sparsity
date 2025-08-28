@@ -855,7 +855,7 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
     
     return classifications
 
-def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg"
+def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg",
                                figsize=(30, 20), dpi=300):
     """
     Create a large annotated dendrogram with k-gon and bias information.
