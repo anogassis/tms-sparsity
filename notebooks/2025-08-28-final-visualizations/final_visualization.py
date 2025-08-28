@@ -38,7 +38,8 @@ from scipy.optimize import linear_sum_assignment
 from scipy.cluster.hierarchy import linkage, dendrogram
 import time
 
-# %%
+result_path="../../results"
+
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
     preagg_path = os.path.join(data_dir, f"llc_preagg_{version}.csv")
@@ -62,16 +63,7 @@ def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) ->
 
     return preagg_df
 
-# %%
-
-def create_position_color_mapping(positions):
-    """Create color mapping for different positions/timesteps."""
-    cmap = plt.get_cmap("tab10")  
-    n_colors = cmap.N 
-    return {pos: cmap(i % n_colors) for i, pos in enumerate(sorted(positions))}
-
-
-def plot_for_sparsity(sparsity, df_results_pairs: Tuple[DfResultPair, DfResultPair], 
+def plot_for_sparsity(sparsity, df_results_pairs: Tuple[DfResultPair, DfResultPair],
                      batch_size, learning_rate, position_to_color, positions, 
                      x_scale, y_scale, sharex, sharey, ymin):
     """Plot LLC vs Loss for a specific sparsity, with different positions as colors."""
@@ -156,6 +148,23 @@ def compare_dataframes_by_sparsity(
     Create separate plots for each sparsity value, with positions shown as different colors.
     This is the inverse of the original function where sparsity was colored.
     """
+
+    def create_position_color_mapping(positions):
+        """Create color mapping for different positions/timesteps."""
+        cmap = plt.get_cmap("tab10")
+        n_colors = cmap.N
+        return {pos: cmap(i % n_colors) for i, pos in enumerate(sorted(positions))}
+
+
+    def collect_global_sparsities(df_results_pairs):
+        sparsities = set()
+        for _, results in df_results_pairs:
+            for result in iterate_container(results):
+                sparsity = results[result["run_id"]]['parameters']['sparsity']
+                if sparsity != 0:
+                    sparsities.add(sparsity)
+        return sorted(sparsities)
+
     warnings.simplefilter(action='ignore', category=UserWarning)
 
     # Collect all unique sparsities across all results
@@ -289,20 +298,10 @@ def plot_single_sparsity_position(
 
     return fig
 
-
-# Keep the existing helper functions
-def collect_global_sparsities(df_results_pairs):
-    sparsities = set()
-    for _, results in df_results_pairs:
-        for result in iterate_container(results):
-            sparsity = results[result["run_id"]]['parameters']['sparsity']
-            if sparsity != 0:
-                sparsities.add(sparsity)
-    return sorted(sparsities)
-
-
 def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
-    # loss_hist = []
+    """
+    Variant of plot_results with loss_window, which is useful if we want to find models that one spotted through the loss-vs-llc-plot
+    """
     for sparse_value in sparsities:
         plotted =0
         print(f"Plot polygons for sparsity={sparse_value}")
@@ -383,8 +382,6 @@ def plot_specific_index(results, index, step=-1):
     plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
     plt.show()
 
-
-# %%
 def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
     """
     Get the weights of a model at a specific index and timestep.
@@ -401,7 +398,7 @@ def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, t
     weights = weights_list[step]
     return weights['embedding.weight'], weights['unembedding.bias']
 
-# %%
+
 def calculate_convex_hull_vertices(W:torch.Tensor)->int:
 
     """
@@ -479,7 +476,7 @@ def classify_kgon(W):
         return classify_5_gon(embedding_w, W["unembedding.bias"])
     return edges
 
-# %%
+
 def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
     # loss_hist = []
     for sparse_value in sparsities:
@@ -552,12 +549,9 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'kgon_frequencies_sparsity_{sparse_value}.png', dpi=300)
-        plt.show()
 
 
-
-# %%
-def generate_2d_kgon_vertices(k, rot=0., pad_to=None, force_length=0.9):
+def generate_2d_kgon_vertices(k, rot:float=0., pad_to=None, force_length=0.9):
     """Set the weights of a 2D k-gon to be the vertices of a regular k-gon."""
     # Angles for the vertices
     theta = np.linspace(0, 2*np.pi, k, endpoint=False) + rot
@@ -582,7 +576,7 @@ def generate_init_param(m, n, init_kgon, prior_std=1., no_bias=True, init_zerobi
         assert init_kgon <= n
         rand_angle = np.random.uniform(0, 2 * np.pi, size=(1,))
         noise = np.random.normal(size=(m, n)) * noise
-        init_W = generate_2d_kgon_vertices(init_kgon, rot=rand_angle, pad_to=n) + noise
+        init_W = generate_2d_kgon_vertices(init_kgon, rot=float(rand_angle), pad_to=n) + noise
 
     if no_bias:
         param = {"W": init_W}
@@ -661,92 +655,6 @@ def create_loss_matrix_simple(results, max_models=200, step=-1):
             sparsities.append(float('nan'))
     
     return loss_matrix.numpy(), all_inputs, np.array(sparsities)
-
-def visualize_first_sparsity(results, max_models=200):
-    """
-    Visualize the first sparsity group (first 200 models)
-    """
-    print(f"\n=== Visualizing first {max_models} models ===")
-    
-    # Create loss matrix
-    loss_matrix, inputs, sparsities = create_loss_matrix_simple(results, max_models)
-    
-    # Remove any NaN models
-    valid_models = ~np.isnan(loss_matrix).any(axis=0)
-    loss_matrix = loss_matrix[:, valid_models]
-    sparsities = sparsities[valid_models]
-    
-    print(f"Valid models: {valid_models.sum()}/{max_models}")
-    
-    if valid_models.sum() < 2:
-        print("Not enough valid models for visualization")
-        return
-    
-    # Create visualization
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    
-    # 1. Loss matrix heatmap
-    ax = axes[0, 0]
-    im = ax.imshow(loss_matrix, aspect='auto', cmap='viridis')
-    ax.set_title(f'Loss Matrix (64 inputs × {valid_models.sum()} models)')
-    ax.set_xlabel('Model Index')
-    ax.set_ylabel('Input Index')
-    plt.colorbar(im, ax=ax, label='Loss')
-    
-    # 2. PCA of models
-    ax = axes[0, 1]
-    if loss_matrix.shape[1] >= 2:
-        pca = PCA(n_components=2)
-        model_pca = pca.fit_transform(loss_matrix.T)
-        
-        scatter = ax.scatter(model_pca[:, 0], model_pca[:, 1], c=sparsities, cmap='plasma', alpha=0.7)
-        ax.set_title(f'PCA of Models (var: {pca.explained_variance_ratio_.sum():.2f})')
-        ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.2f})')
-        ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.2f})')
-        plt.colorbar(scatter, ax=ax, label='Sparsity')
-    
-    # 3. Input discrimination
-    ax = axes[1, 0]
-    input_variance = np.var(loss_matrix, axis=1)
-    bars = ax.bar(range(64), input_variance)
-    
-    # Highlight top 5 discriminative inputs
-    top_discriminative = np.argsort(input_variance)[-5:]
-    for idx in top_discriminative:
-        bars[idx].set_color('red')
-    
-    ax.set_title('Input Discrimination Power')
-    ax.set_xlabel('Input Index')
-    ax.set_ylabel('Loss Variance Across Models')
-    
-    # 4. Sample losses across models
-    ax = axes[1, 1]
-    # Plot losses for a few sample inputs
-    sample_inputs = [0, 1, 31, 63]  # Binary: 000000, 000001, 011111, 111111
-    for inp_idx in sample_inputs:
-        if inp_idx < loss_matrix.shape[0]:
-            binary = format(inp_idx, '06b')
-            ax.plot(loss_matrix[inp_idx, :], label=f'Input {inp_idx} ({binary})', alpha=0.7)
-    
-    ax.set_title('Loss Patterns for Sample Inputs')
-    ax.set_xlabel('Model Index')
-    ax.set_ylabel('Loss')
-    ax.legend()
-    
-    plt.tight_layout()
-    plt.show()
-    
-    # Print analysis
-    print(f"\nSparsity range: {sparsities.min():.3f} to {sparsities.max():.3f}")
-    print(f"Loss range: {loss_matrix.min():.4f} to {loss_matrix.max():.4f}")
-    
-    print(f"\nTop 5 discriminative inputs:")
-    for i, idx in enumerate(top_discriminative):
-        binary = format(idx, '06b')
-        num_ones = binary.count('1')
-        print(f"  {i+1}. Input {idx:2d} ({binary}) - {num_ones} ones - var: {input_variance[idx]:.4f}")
-    
-    return loss_matrix, sparsities
 
 def permutation_invariant_distance_hungarian(pattern1, pattern2, metric='euclidean'):
     """
@@ -926,7 +834,7 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
                 'bias_negative': bias_analysis['negative'],
                 'bias_zero': bias_analysis['zero'],
                 'bias_total': bias_analysis['total'],
-                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg"
+                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg_{bias_analysis['zero']}_zero"
             }
             
             classifications.append(classification)
@@ -947,45 +855,7 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
     
     return classifications
 
-def create_classification_summary(classifications):
-    """
-    Create summary statistics of all classifications.
-    """
-    # Group by sparsity
-    by_sparsity = defaultdict(list)
-    for cls in classifications:
-        by_sparsity[cls['sparsity']].append(cls)
-    
-    print("CLASSIFICATION SUMMARY")
-    print("=" * 60)
-    
-    for sparsity in sorted(by_sparsity.keys()):
-        models = by_sparsity[sparsity]
-        print(f"\nSparsity {sparsity} ({len(models)} models):")
-        print("-" * 40)
-        
-        # Count k-gon types
-        kgon_counts = Counter([m['kgon_type'] for m in models])
-        print("K-gon types:")
-        for kgon_type, count in sorted(kgon_counts.items()):
-            print(f"  {kgon_type}-gon: {count}")
-        
-        # Count bias patterns
-        bias_patterns = Counter([m['bias_pattern'] for m in models])
-        print("Bias patterns:")
-        for pattern, count in sorted(bias_patterns.items()):
-            print(f"  {pattern}: {count}")
-    
-    # Overall summary
-    print(f"\nOVERALL SUMMARY ({len(classifications)} total models):")
-    print("-" * 40)
-    all_kgons = Counter([m['kgon_type'] for m in classifications])
-    for kgon_type, count in sorted(all_kgons.items()):
-        print(f"{kgon_type}-gon: {count}")
-    
-    return by_sparsity
-
-def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg", save:bool=False, plot:bool=True,
+def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendrogram.svg"
                                figsize=(30, 20), dpi=300):
     """
     Create a large annotated dendrogram with k-gon and bias information.
@@ -1015,8 +885,7 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
         return f"M{cls['model_index']}_{cls['kgon_type']}-gon_S:{cls['sparsity']:.3f}_{cls['bias_pattern']}"
     # Create dendrogram
     dend = dendrogram(Z, ax=ax, leaf_rotation=90, leaf_font_size=8, leaf_label_func=ann)
-    # leaves = dend['leaves']
-    
+
     # Create color map for k-gon types
     unique_kgons = list(set([c['kgon_type'] for c in classifications]))
     colors = plt.cm.Set3(np.linspace(0, 1, len(unique_kgons)))
@@ -1038,43 +907,30 @@ def create_annotated_dendrogram(results,save_path=f"{result_path}annotated_dendr
     # Adjust layout
     plt.tight_layout()
     
-    # Save as SVG
-    if save:
-        print(f"Saving annotated dendrogram to {save_path}...")
-        plt.savefig(save_path, format='svg', dpi=dpi, bbox_inches='tight')
-    if plot:
-        plt.show()
-    
+    print(f"Saving annotated dendrogram to {save_path}...")
+    plt.savefig(save_path, format='svg', dpi=dpi, bbox_inches='tight')
+
     return fig, ax
 
+def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
+    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init)), ymin=0, plot=False)
 
-
-for i in range(10):
-    create_annotated_dendrogram(results_1_13[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
-
-
-def plot_everything(results_random_init: Results, llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame, result_path="../../result"):
-    compare_dataframes_and_results((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init))
-
-
-    %%
     plot_kgon_percentages(
         results_random_init
     )
 
-    # %%
     plot_kgon_percentages(
         results_optimal_init
     )
 
     loss_matrices=[]
     sparsities=[]
-    for i in range(10):
-        loss_matrix,_, sparsity = create_loss_matrix_simple(results_1_13[i*200:(i+1)*200], 200)
-        loss_matrices.append(loss_matrix)
-        sparsities.append(sparsity)
     small_results = results_random_init[:10]
+
     create_annotated_dendrogram(small_results,save_path=f"{result_path}annotated_dendrogram_small.svg")
+
+    for i in range(10):
+        create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{result_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
 
 def main():
     data_path = "../../data"
@@ -1113,11 +969,7 @@ def main():
     results_1_15= load_results(data_path, version)
     llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
 
-    results_random_init = results_1_13
-    llc_estimates_random_init = llc_estimates_1_13
-
-    results_optimal_init = results_1_14
-    llc_estimates_optimal_init = llc_estimates_1_14
     #TODO: check results from get_weights
+    plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
 
 main()
