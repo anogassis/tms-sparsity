@@ -184,16 +184,18 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
             title = "Initialized at random 4-gon"
         if pair_index == 1:
             title = "Initialized at optimal parameters for sparse inputs"
-        axes[pair_index].set_title(f"Pair {title}, Position {position}")
+        axes[pair_index].set_title(f"Pair {title}, Position {position}", fontsize=24)
         axes[pair_index].set_xlabel("LLC")
         axes[pair_index].set_ylabel("Loss")
-        axes[pair_index].legend()
+        axes[pair_index].legend(fontsize=20)
         axes[pair_index].set_xscale(x_scale)
         axes[pair_index].set_yscale(y_scale)
         axes[pair_index].set_ylim(ymin=ymin)
 
     plt.tight_layout()
-    plt.suptitle(f"Loss and LLC After Epoch {steps[position]}", fontsize=16)
+    plt.suptitle(f"Loss and LLC After Epoch {steps[position]}",#, fontsize=16
+                 fontsize=30,
+                 )
     plt.subplots_adjust(top=0.9)
 
     return fig, steps[position]
