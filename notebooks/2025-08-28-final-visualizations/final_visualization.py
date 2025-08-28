@@ -366,9 +366,13 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             print(count_kgons(weights))
 
             
+TEMPLATE_KGON_PERCENTAGES = "% Frequency of k-gons over training steps\n(sparsity={sparse_value:.3f})"
 
-
-def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001, plot_path='../../results/'):
+def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001, plot_path="../../results/",
+    save_path_tmpl="{plot_path}kgon_frequencies_sparsity_{sparse_value:.3f}_{name}.png",
+    title_tmpl=TEMPLATE_KGON_PERCENTAGES,
+    name="random",
+):
     STEPS = results[0]['parameters']['log_ivl']
     NUM_EPOCHS = 20000
     PLOT_STEPS = [min(STEPS, key=lambda s: abs(s - i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
@@ -400,17 +404,20 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         # Convert to plot format
         plot_data = {k: [freqs[k] for freqs in kgon_frequencies] for k in all_kgons}
 
+        title = title_tmpl.format(sparse_value=sparse_value)
+        save_path = save_path_tmpl.format(plot_path=plot_path, sparse_value=sparse_value, name=name)
+
         # Plot
         plt.figure()
         for k, values in plot_data.items():
             plt.plot(PLOT_STEPS, values, label=f'{k}-gon')
-        plt.title(f'% Frequency of k-gons over training steps\n(sparsity={sparse_value})')
+        plt.title(title)
         plt.xlabel('Training Step')
         plt.ylabel('Percentage Frequency')
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f'{plot_path}kgon_frequencies_sparsity_{sparse_value}.png', dpi=300)
+        plt.savefig(save_path, dpi=300)
 
 
 def generate_2d_kgon_vertices(k, rot:float=0., pad_to=None, force_length=0.9):
@@ -694,7 +701,7 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
                 'bias_negative': bias_analysis['negative'],
                 'bias_zero': bias_analysis['zero'],
                 'bias_total': bias_analysis['total'],
-                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg_{bias_analysis['zero']}_zero"
+                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg_{bias_analysis['zero']}zero"
             }
             
             classifications.append(classification)
@@ -776,11 +783,11 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path)
 
     plot_kgon_percentages(
-        results_random_init
+        results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
     )
 
     plot_kgon_percentages(
-        results_optimal_init
+        results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
     )
 
     loss_matrices=[]
@@ -789,8 +796,8 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
 
     create_annotated_dendrogram(small_results,save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
-    for i in range(10):
-        create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{plot_path}annotated_dendrogram_{i}.svg", save=False, plot=False)
+    # for i in range(10):
+    #     create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
 
 def main():
     data_path = "../../data"
