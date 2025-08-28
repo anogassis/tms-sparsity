@@ -911,7 +911,7 @@ def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrog
     return fig, ax
 
 def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
-    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_random_init)), ymin=0, plot=False, result_path=plot_path)
+    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path)
 
     plot_kgon_percentages(
         results_random_init
