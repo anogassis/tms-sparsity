@@ -139,7 +139,8 @@ def create_color_mapping(sparsities):
     return {s: cmap(i % n_colors) for i, s in enumerate(sorted(sparsities))}
 
 
-DfResultPair =  Tuple[pd.DataFrame, Dict[str, Any]]
+Results = Dict[int, Any] | List[Any]
+DfResultPair =  Tuple[pd.DataFrame, Results]
 
 def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPair], batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin):
     fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
