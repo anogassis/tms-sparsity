@@ -38,7 +38,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.cluster.hierarchy import linkage, dendrogram
 import time
 
-plot_path="../../results"
+plot_path="../../results/"
 
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
@@ -506,7 +506,7 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             
 
 
-def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001):
+def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001, plot_path='../../results/'):
     STEPS = results[0]['parameters']['log_ivl']
     NUM_EPOCHS = 20000
     PLOT_STEPS = [min(STEPS, key=lambda s: abs(s - i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
@@ -548,7 +548,7 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f'kgon_frequencies_sparsity_{sparse_value}.png', dpi=300)
+        plt.savefig(f'{plot_path}kgon_frequencies_sparsity_{sparse_value}.png', dpi=300)
 
 
 def generate_2d_kgon_vertices(k, rot:float=0., pad_to=None, force_length=0.9):
