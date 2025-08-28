@@ -932,25 +932,25 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
 
 def main():
     data_path = "../../data"
-    version = "1.8.0"
+    # version = "1.8.0"
 
-    results_1_8= load_results(data_path, version)
-    llc_estimates_1_8 = get_or_create_preaggregated_llc_csv(results_1_8, version, data_path)
+    # results_1_8= load_results(data_path, version)
+    # llc_estimates_1_8 = get_or_create_preaggregated_llc_csv(results_1_8, version, data_path)
 
-    version = "1.7.0"
+    # version = "1.7.0"
 
-    results_1_7= load_results(data_path, version)
-    llc_estimates_1_7 = get_or_create_preaggregated_llc_csv(results_1_7, version, data_path)
+    # results_1_7= load_results(data_path, version)
+    # llc_estimates_1_7 = get_or_create_preaggregated_llc_csv(results_1_7, version, data_path)
 
-    version = "1.11.0"
+    # version = "1.11.0"
 
-    results_1_11= load_results(data_path, version)
-    llc_estimates_1_11 = get_or_create_preaggregated_llc_csv(results_1_11, version, data_path)
+    # results_1_11= load_results(data_path, version)
+    # llc_estimates_1_11 = get_or_create_preaggregated_llc_csv(results_1_11, version, data_path)
 
-    version = "1.12.0"
+    # version = "1.12.0"
 
-    results_1_12= load_results(data_path, version)
-    llc_estimates_1_12 = get_or_create_preaggregated_llc_csv(results_1_12, version, data_path)
+    # results_1_12= load_results(data_path, version)
+    # llc_estimates_1_12 = get_or_create_preaggregated_llc_csv(results_1_12, version, data_path)
 
     version = "1.13.0"
 
@@ -962,10 +962,10 @@ def main():
     results_1_14= load_results(data_path, version)
     llc_estimates_1_14 = get_or_create_preaggregated_llc_csv(results_1_14, version, data_path)
 
-    version = "1.15.0"
+    # version = "1.15.0"
 
-    results_1_15= load_results(data_path, version)
-    llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+    # results_1_15= load_results(data_path, version)
+    # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
 
     #TODO: check results from get_weights
     plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
