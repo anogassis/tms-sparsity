@@ -234,7 +234,9 @@ def plot_specific_index(results, index, step=-1):
     
     Ws = [result['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
     biases = [result['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
-    
+    kgon = calculate_convex_hull_vertices(Ws[-1], 0.05)
+
+    print(f"Kgon (with epsilon 0.05): {kgon}")
     # Optional: Load model weights
     model = ToyAutoencoder(6, 2, final_bias=True)
     new_weights = {}
@@ -261,7 +263,7 @@ def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, t
     return weights['embedding.weight'], weights['unembedding.bias']
 
 
-def calculate_convex_hull_vertices(W:torch.Tensor)->int:
+def calculate_convex_hull_vertices(W:torch.Tensor, epsilon=0.)->int:
 
     """
     Calculate the number of vertices of the convex hull of the points represented by the columns of W.
@@ -274,14 +276,46 @@ def calculate_convex_hull_vertices(W:torch.Tensor)->int:
         W = W.cpu().detach().numpy()
     
     hull = ConvexHull(W.T)
-    return len(hull.vertices)  # The number of vertices is the same as the number of edges
+    vertices = W[:,ConvexHull(W.T).vertices]
+    l = len(vertices.T)
+    vertex_count=l
+    removed=[]
+    for i in range(l):
+        element = vertices[:,i]
+        other = np.delete(vertices, removed + [i], axis=1)
+        centroid = np.mean(vertices,axis=1)
+        direction = centroid - element
+        normalized_direction = direction /np.linalg.norm(direction)
+        new_element = element+direction*epsilon
 
-def count_kgons(W):
+        new_full = np.hstack((other, new_element.reshape(-1,1))).T
+        hull = ConvexHull(new_full)
+        if len(hull.vertices) < vertex_count:
+            removed.append(i)
+            vertex_count-=1
+
+    return vertex_count
+
+    # vertices = W[:,ConvexHull(W.T).vertices]
+    # l = len(vertices.T)
+    # prev = vertices[:,-1]
+    # vertex_count=0
+
+    # for i in range(l):
+    #     v = vertices[:,i]
+    #     if np.linalg.norm(v-prev) > epsilon:
+    #         vertex_count+=1
+    #     prev=v
+    # return vertex_count
+
+    # return len(hull.vertices)  # The number of vertices is the same as the number of edges
+
+def count_kgons(W, epsilon=0.):
     edge_counts = {}
     
     # Process each weight matrix
     for full_w in W:
-        num_edges = classify_kgon(full_w)
+        num_edges = classify_kgon(full_w, epsilon=epsilon)
         if num_edges in edge_counts:
             edge_counts[num_edges] += 1
         else:
@@ -289,53 +323,9 @@ def count_kgons(W):
 
     return edge_counts
 
-def classify_5_gon(W, b, differentiate_5_plus=False):
-    """
-    Classify a 5-gon based on the weights and biases. 
-    """
-
-    # Convert tensor to numpy if it isn't already
-    if isinstance(W, torch.Tensor):
-        W = W.cpu().detach().numpy()
-    
-    if W.shape[0] == 2:
-        W = W.T
-
-    # Compute the convex hull
-    hull = ConvexHull(W)
-    
-    # Check if the number of vertices is equal to 5
-    if len(hull.vertices) != 5:
-        return "not a 5-gon"
-    
-    # Convert biases to a numpy array if it isn't already
-    if isinstance(b, torch.Tensor):
-        b = b.cpu().detach().numpy()
-
-
-    # Check if any of the non-vertex biases are large negative
-    non_vertex_biases = np.delete(b, hull.vertices)
-
-    # Check for any positive bias that is not part of the convex hull vertices
-    non_hull_positive_bias = np.any(non_vertex_biases > 0)
-
-    if not non_hull_positive_bias:
-        return 5
-    elif non_hull_positive_bias and differentiate_5_plus:
-        return "5+"
-    elif non_hull_positive_bias and not differentiate_5_plus:
-        return 5
-    else:
-
-        return 'not a 5-gon'
-
-
-
-def classify_kgon(W):
+def classify_kgon(W, epsilon=0.):
     embedding_w = W["embedding.weight"]
-    edges = calculate_convex_hull_vertices(embedding_w)
-    if edges == 5:
-        return classify_5_gon(embedding_w, W["unembedding.bias"])
+    edges = calculate_convex_hull_vertices(embedding_w, epsilon)
     return edges
 
 
@@ -368,10 +358,11 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             
 TEMPLATE_KGON_PERCENTAGES = "% Frequency of k-gons over training steps\n(sparsity={sparse_value:.3f})"
 
-def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon=0.001, plot_path="../../results/",
-    save_path_tmpl="{plot_path}kgon_frequencies_sparsity_{sparse_value:.3f}_{name}.png",
+def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon_sparsity=0.001, plot_path="../../results/",
+    save_path_tmpl="{plot_path}kgon_frequencies_sparsity_{sparse_value:.3f}_{name}_{epsilon_kgon}.png",
     title_tmpl=TEMPLATE_KGON_PERCENTAGES,
     name="random",
+    epsilon_kgon=0.,
 ):
     STEPS = results[0]['parameters']['log_ivl']
     NUM_EPOCHS = 20000
@@ -385,12 +376,12 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         for step_idx in PLOT_INDICES:
             weights_at_step = []
             for result in results:
-                if abs(result['parameters']['sparsity'] - sparse_value) > epsilon:
+                if abs(result['parameters']['sparsity'] - sparse_value) > epsilon_sparsity:
                     continue
                 weights_at_step.append(result['weights'][step_idx])
 
             # Count kgons
-            counts = count_kgons(weights_at_step)
+            counts = count_kgons(weights_at_step, epsilon=epsilon_kgon)
             total = sum(counts.values())
             frequencies = {k: v / total * 100 for k, v in counts.items()}
             kgon_frequencies.append(frequencies)
@@ -405,7 +396,7 @@ def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938
         plot_data = {k: [freqs[k] for freqs in kgon_frequencies] for k in all_kgons}
 
         title = title_tmpl.format(sparse_value=sparse_value)
-        save_path = save_path_tmpl.format(plot_path=plot_path, sparse_value=sparse_value, name=name)
+        save_path = save_path_tmpl.format(plot_path=plot_path, sparse_value=sparse_value, name=name, epsilon_kgon=epsilon_kgon)
 
         # Plot
         plt.figure()
@@ -684,8 +675,10 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
             final_weights = result['weights'][-1]
             
             # Classify k-gon
-            kgon_type = classify_kgon(final_weights)
-            
+            kgon_type_precise = classify_kgon(final_weights, epsilon=0)
+            kgon_type_imprecise = classify_kgon(final_weights, epsilon=.1)
+            diff = kgon_type_precise - kgon_type_imprecise
+
             # Analyze biases
             bias_analysis = analyze_biases(final_weights["unembedding.bias"], epsilon)
             
@@ -696,12 +689,13 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
             classification = {
                 'model_index': i,
                 'sparsity': sparsity,
-                'kgon_type': kgon_type,
+                'kgon_type': kgon_type_imprecise,
                 'bias_positive': bias_analysis['positive'],
                 'bias_negative': bias_analysis['negative'],
                 'bias_zero': bias_analysis['zero'],
                 'bias_total': bias_analysis['total'],
-                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg_{bias_analysis['zero']}zero"
+                'bias_pattern': f"{bias_analysis['positive']}pos_{bias_analysis['negative']}neg_{bias_analysis['zero']}zero",
+                'diff': diff,
             }
             
             classifications.append(classification)
@@ -717,13 +711,14 @@ def classify_all_solutions(results, sparsities, epsilon=0.1):
                 'bias_negative': 0,
                 'bias_zero': 0,
                 'bias_total': 0,
-                'bias_pattern': 'error'
+                'bias_pattern': 'error',
+                'diff': 0,
             })
     
     return classifications
 
-def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrogram.svg",
-                               figsize=(30, 20), dpi=300):
+def create_annotated_dendrogram(results,indices=None,save_path=f"{plot_path}annotated_dendrogram.svg",
+                                figsize=(30, 20), dpi=300):
     """
     Create a large annotated dendrogram with k-gon and bias information.
     
@@ -740,6 +735,10 @@ def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrog
     dpi : int
         DPI for the figure
     """
+    if indices:
+        results = [results[i] for i in indices]
+    else:
+        indices = range(len(results))
     loss_matrix, _, sparsity = create_loss_matrix_simple(results, max_models=len(results))
 
     Z, _ = create_permutation_invariant_dendrogram(loss_matrix)
@@ -749,7 +748,7 @@ def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrog
 
     def ann(idx):
         cls = classifications[idx]
-        return f"M{cls['model_index']}_{cls['kgon_type']}-gon_S:{cls['sparsity']:.3f}_{cls['bias_pattern']}"
+        return f"M{indices[cls['model_index']]}_{cls['kgon_type']}-gon_S:{cls['sparsity']:.3f}_{cls['bias_pattern']}_diff:{cls['diff']}"
     # Create dendrogram
     dend = dendrogram(Z, ax=ax, leaf_rotation=90, leaf_font_size=8, leaf_label_func=ann)
 
@@ -780,24 +779,33 @@ def create_annotated_dendrogram(results,save_path=f"{plot_path}annotated_dendrog
     return fig, ax
 
 def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
+
     compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path)
 
+    EPSILON_KGON=0.05
     plot_kgon_percentages(
         results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
     )
 
     plot_kgon_percentages(
+        results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
+    )
+
+    plot_kgon_percentages(
         results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
+    )
+    plot_kgon_percentages(
+        results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
     )
 
     loss_matrices=[]
     sparsities=[]
     small_results = results_random_init[:10]
 
-    create_annotated_dendrogram(small_results,save_path=f"{plot_path}annotated_dendrogram_small.svg")
+    create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
-    # for i in range(10):
-    #     create_annotated_dendrogram(results_random_init[i*200:(i+1)*200],save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
+    for i in range(10):
+        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
 
 def main():
     data_path = "../../data"
@@ -831,12 +839,25 @@ def main():
     results_1_14= load_results(data_path, version)
     llc_estimates_1_14 = get_or_create_preaggregated_llc_csv(results_1_14, version, data_path)
 
+    results_random_init=results_1_13
+    llc_estimates_random_init=llc_estimates_1_13
+    results_optimal_init=results_1_14
+    llc_estimates_optimal_init=llc_estimates_1_14
+
     # version = "1.15.0"
 
-    # results_1_15= load_results(data_path, version)
-    # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+    results_1_15= load_results(data_path, version)
+    llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+    # for index in range(1000):
+    for index in [0]:
+        plot_specific_index(results_random_init, index)
 
     #TODO: check results from get_weights
     plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
 
 main()
+# calculate_convex_hull_vertices(torch.Tensor(
+# [[-1.8623e+00, -1.1313e+00,  8.4201e-01,  6.8771e-03, -1.5209e-02,
+#          -1.2631e+00],
+#         [-1.0020e+00, -2.1917e+00, -1.5675e+00, -5.0797e-04,  9.5378e-03,
+#          -6.7840e-01]]))
