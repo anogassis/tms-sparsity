@@ -180,7 +180,7 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
             if test_loss:
                 weights = results[index]['weights'][position]
                 W = weights['embedding.weight']
-                b = weights['unembedding.weight']
+                b = weights['unembedding.bias']
                 loss = compute_loss(W,b, sparsity)
             else:
                 loss = results[index]['logs']['loss'].values[position]
