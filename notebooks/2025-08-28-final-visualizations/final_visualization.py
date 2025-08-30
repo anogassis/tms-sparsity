@@ -50,6 +50,9 @@ import time
 
 plot_path="../../results/"
 
+
+sparse_value=0.426
+test_set_size = 10000
 test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparse_value)]).float()
 
 def compute_loss(W,b):
@@ -252,16 +255,29 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
             Ws = [results[index]['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
             biases = [results[index]['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
 
+            start = time.time()
+            test_losses = []
+            for i, s in enumerate(STEPS):
+                weights = results[index]['weights'][i]
+                W = weights['embedding.weight']
+                b = weights['unembedding.bias']
+                loss = compute_loss(W,b)
+                test_losses.append((s,loss))
+            end = time.time()
+            print(f"Took {end - start:.4f} seconds to compute losses")
+
             loss = compute_loss(Ws[-1],biases[-1])
-            print(f"Loss: {losses[step]}")
+            # print(f"Loss: {losses[step]}")
+            print(f"Loss: {loss}")
             model = ToyAutoencoder(6, 2, final_bias=True)
             new_weights ={}
             for idx, ndarray in results[index]['weights'][PLOT_INDICES[-1]].items():
                 new_weights[idx] = torch.from_numpy(ndarray)
+            print(f"Test_losses: {test_losses}")
 
             # print(f'index: {index}')
             #all_weights = [[results[j]['weights'][i] for i in PLOT_INDICES] for j in range(len(results))]
-            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index)
+            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses)
             plt.show()
 
 def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
@@ -326,7 +342,6 @@ def calculate_convex_hull_vertices(W:torch.Tensor, epsilon=0.)->int:
 
     return vertex_count
 
-
 def count_kgons(W, epsilon=0.):
     edge_counts = {}
     
@@ -344,7 +359,6 @@ def classify_kgon(W, epsilon=0.):
     embedding_w = W["embedding.weight"]
     edges = calculate_convex_hull_vertices(embedding_w, epsilon)
     return edges
-
 
 def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
     # loss_hist = []
@@ -868,7 +882,7 @@ def with_interactive_plots(func):
             plt.show()   # block at the end so windows stay open
     return wrapper
 
-@with_interactive_plots
+# @with_interactive_plots
 def model_geometry():
     data_path = "../../data"
     model_plot_path = f"{plot_path}model-geometry/"
@@ -998,7 +1012,7 @@ def model_geometry():
     # comp(W,b,0, [(1,0),(3,0),(5,0)])
     index = 1
     # comp(1, [])
-    comp_diff(1,4)
+    # comp_diff(1,4)
 
 
 
@@ -1077,7 +1091,6 @@ def perfect_solution():
     n = 2
     l = 0.6 #
     b = .65 #
-    test_set_size = 1000
 
     w = torch.from_numpy(generate_2d_kgon_vertices(m, rot=0., force_length=l, pad_to=m)).float()
     bias = torch.ones((m)) * b
