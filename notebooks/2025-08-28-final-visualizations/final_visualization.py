@@ -4,6 +4,8 @@ from collections import defaultdict, Counter
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import operator
+import functools
 
 import numpy as np
 import pandas as pd
@@ -11,6 +13,7 @@ import pandas as pd
 from scipy.spatial import ConvexHull
 
 import torch
+import torch.nn as nn
 import os
 
 from typing import List, Dict, Any, Tuple
@@ -18,18 +21,25 @@ from typing import List, Dict, Any, Tuple
 from tms.utils.utils import load_results, get_first, iterate_container
 from tms.models.autoencoder import ToyAutoencoder
 from tms.llc import get_llc_data, preaggregate_llc
-from tms.plots.kgons import plot_losses_and_polygons
+from tms.plots.kgons import plot_losses_and_polygons, plot_polygon
 from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair
+
+
+from einops import rearrange, reduce, repeat, einsum
+from jaxtyping import Float, Int, Bool, Shaped, jaxtyped #Array (We cannot used array (which by my understanding generalizes between numpy and pytorch, because that would require us to install jax))
+import typeguard
 
 
 import numpy as np
 import torch
+from torch import Tensor
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
 from tms.models.autoencoder import ToyAutoencoder
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
+from tms.data.dataset import SyntheticBinarySparseValued
 
 
 import numpy as np
@@ -39,6 +49,14 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 import time
 
 plot_path="../../results/"
+
+test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparse_value)]).float()
+
+def compute_loss(W,b):
+    encoded = test_X @ W.T          # (N, 2)
+    decoded = encoded @ W      # (N, 6)
+    out = decoded + b       # (N, 6)  (bias broadcasts)
+    return torch.mean((out-test_X).pow(2))   # scalar mean MSE over all samples and dims
 
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
@@ -160,45 +178,6 @@ def plot_single_sparsity_position(
 
     return fig
 
-def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
-    """
-    Variant of plot_results with loss_window, which is useful if we want to find models that one spotted through the loss-vs-llc-plot
-    """
-    for sparse_value in sparsities:
-        plotted =0
-        print(f"Plot polygons for sparsity={sparse_value}")
-        for index in range(len(results)):
-            
-            STEPS = results[index]['parameters']['log_ivl']
-            logs = results[index]['logs']
-            losses = [logs.loc[logs['step'] == s, 'loss'].values[0] for s in STEPS]
-            
-            outside_loss_window = losses[step] < loss_window[0] or losses[step] > loss_window[1]
-            non_matching_sparsity = abs(results[index]['parameters']['sparsity'] - sparse_value) > epsilon
-            if non_matching_sparsity or outside_loss_window:
-                continue
-            else:
-                if plotted>=plot_number:
-                    continue
-                plotted+=1
-
-            print(f"Loss: {losses[step]}")
-
-            NUM_EPOCHS = 20000
-            PLOT_STEPS = [min(STEPS, key=lambda s: abs(s-i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
-            PLOT_INDICES = [STEPS.index(s) for s in PLOT_STEPS]
-            Ws = [results[index]['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
-            biases = [results[index]['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
-            
-            model = ToyAutoencoder(6, 2, final_bias=True)
-            new_weights ={}
-            for idx, ndarray in results[index]['weights'][PLOT_INDICES[-1]].items():
-                new_weights[idx] = torch.from_numpy(ndarray)
-
-            print(f'index: {index}')
-            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
-            plt.show()
-
 def plot_specific_index(results, index, step=-1):
     """
     Plot results for a specific index in the results list.
@@ -243,8 +222,47 @@ def plot_specific_index(results, index, step=-1):
     for idx, ndarray in result['weights'][PLOT_INDICES[-1]].items():
         new_weights[idx] = torch.from_numpy(ndarray)
     
-    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
+    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index)
     plt.show()
+
+def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
+    # loss_hist = []
+    for sparse_value in sparsities:
+        plotted =0
+        print(f"Plot polygons for sparsity={sparse_value}")
+        for index in range(len(results)):
+
+            STEPS = results[index]['parameters']['log_ivl']
+            logs = results[index]['logs']
+            losses = [logs.loc[logs['step'] == s, 'loss'].values[0] for s in STEPS]
+
+            outside_loss_window = losses[step] < loss_window[0] or losses[step] > loss_window[1]
+            non_matching_sparsity = abs(results[index]['parameters']['sparsity'] - sparse_value) > epsilon
+            if non_matching_sparsity or outside_loss_window:
+                continue
+            else:
+                if plotted>=plot_number:
+                    continue
+                plotted+=1
+
+
+            NUM_EPOCHS = 20000
+            PLOT_STEPS = [min(STEPS, key=lambda s: abs(s-i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
+            PLOT_INDICES = [STEPS.index(s) for s in PLOT_STEPS]
+            Ws = [results[index]['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
+            biases = [results[index]['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
+
+            loss = compute_loss(Ws[-1],biases[-1])
+            print(f"Loss: {losses[step]}")
+            model = ToyAutoencoder(6, 2, final_bias=True)
+            new_weights ={}
+            for idx, ndarray in results[index]['weights'][PLOT_INDICES[-1]].items():
+                new_weights[idx] = torch.from_numpy(ndarray)
+
+            # print(f'index: {index}')
+            #all_weights = [[results[j]['weights'][i] for i in PLOT_INDICES] for j in range(len(results))]
+            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index)
+            plt.show()
 
 def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
     """
@@ -260,8 +278,7 @@ def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, t
         raise IndexError(f"Step {step} out of range for weights list of length {len(weights_list)}")
     
     weights = weights_list[step]
-    return weights['embedding.weight'], weights['unembedding.bias']
-
+    return torch.Tensor(weights['embedding.weight']), torch.Tensor(weights['unembedding.bias'])
 
 def calculate_convex_hull_vertices(W:torch.Tensor, epsilon=0.)->int:
 
@@ -293,9 +310,6 @@ def calculate_convex_hull_vertices(W:torch.Tensor, epsilon=0.)->int:
         if len(hull.vertices) < vertex_count:
             removed.append(i)
             vertex_count-=1
-
-    return vertex_count
-
     # vertices = W[:,ConvexHull(W.T).vertices]
     # l = len(vertices.T)
     # prev = vertices[:,-1]
@@ -309,6 +323,9 @@ def calculate_convex_hull_vertices(W:torch.Tensor, epsilon=0.)->int:
     # return vertex_count
 
     # return len(hull.vertices)  # The number of vertices is the same as the number of edges
+
+    return vertex_count
+
 
 def count_kgons(W, epsilon=0.):
     edge_counts = {}
@@ -807,6 +824,199 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     for i in range(10):
         create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
 
+
+def autoencoder_forward_simple(
+    input_vec: Float[Tensor, "... d"],      # (d,)
+    W: Float[Tensor, "en d"],          # (in, d)
+    b: Float[Tensor, "d"],
+    ) -> Float[Tensor, "d"]:
+    encoded = einsum(W,input_vec,"en d, ... d -> ... en")
+    decoded = einsum(W,encoded, "en d, ... en -> ... d")
+    out = decoded + b
+    return torch.relu(out)
+
+def decoder(encoded: Float[Tensor, "... en"], W: Float[Tensor, "en d"], b: Float[Tensor, "d"])-> Float[Tensor, "d"]:
+    decoded = einsum(W,encoded, "en d, ... en -> ... d")
+    out = decoded + b
+    return torch.relu(out)
+
+def generate_all_inputs(n:int):
+    all_inputs = []
+
+    for i in range(2**n):
+        binary = format(i, f'0{n}b')
+        input_vec = torch.tensor([float(int(b)) for b in binary])
+        all_inputs.append(input_vec)
+    print(all_inputs)
+    return torch.stack(all_inputs,dim=0)
+
+def with_interactive_plots(func):
+    """
+    This decorator makes sure that we do not block in case we create multiple
+    visualizations inside a function and at the same time it should block at the
+    end of the function in order for the plots to not vanish instantly
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # enable interactive mode
+        plt.ion()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            # turn interactive off again
+            plt.ioff()
+            plt.show()   # block at the end so windows stay open
+    return wrapper
+
+@with_interactive_plots
+def model_geometry():
+    data_path = "../../data"
+    model_plot_path = f"{plot_path}model-geometry/"
+
+    version = "1.13.0"
+
+    results_1_13= load_results(data_path, version)
+    llc_estimates_1_13 = get_or_create_preaggregated_llc_csv(results_1_13, version, data_path)
+
+
+    results_random_init=results_1_13
+    llc_estimates_random_init=llc_estimates_1_13
+
+
+    m=6
+    n = 2
+    index = 0
+
+    def visualize_all(W,b):
+        # v = torch.eye(n,n)
+        # v = torch.zeros((1,n))
+        # einsum(W,W,"en d -> en d")
+        u = generate_all_inputs(2)
+
+        # w = autoencoder_forward_simple(v,W,b)
+        # print(w)
+        # U, S, Vh = torch.linalg.svd(W, full_matrices=False)  # U:(en,r), S:(r,), Vh:(r,d)
+        # print(f"U:\n{U}")
+        def ellipse_axes(W: torch.Tensor):
+            # W: (2, d)
+            M = W @ W.T              # 2×2
+            evals, evecs = torch.linalg.eigh(M)  # evals: λ_i = σ_i^2
+            axes = torch.stack([torch.sqrt(val) * vec for val, vec in zip(evals, evecs.T)])
+            return axes  # list of 2 vectors in R^2
+
+        # v = W @ W.T
+        el = ellipse_axes(W)
+
+        print(f"v:\n{el}")
+        v = einsum(el,u,"an en, ... en -> ... an")
+
+        w = decoder(v, W, b)
+
+        print(w.size())
+        plt.imshow(w.T, aspect="auto", cmap="viridis")  # or "gray", etc.
+        plt.colorbar()  # optional, adds color scale
+        plt.show()
+        # plt.pause(0.1)       # let the GUI event loop breathe
+        print(f"v:\n{v}")
+
+    def filter_rows_eq(v: torch.Tensor, conds: list[tuple[int, int | float]]) -> torch.Tensor:
+        """
+        Keep rows of v where v[:, idx] == val for every (idx, val) in conds.
+        v: (N, D) tensor
+        conds: [(idx, val), ...]
+        """
+        if not conds:
+            return v  # nothing to filter
+
+        masks = [(v[:, idx] == val) for idx, val in conds]
+        combined = functools.reduce(operator.and_, masks)
+        return v[combined]
+
+
+    def comp(index=0, conds=[]):
+        W,b = get_weights(results_random_init, index)
+        v = generate_all_inputs(6)
+
+        v = filter_rows_eq(v, conds=conds)
+
+        w = autoencoder_forward_simple(v, W, b)
+
+        new = rearrange(torch.stack((v,w)), "two solutions n -> solutions two n")
+
+        print(new)
+
+    def comp_diff(index, intervention_index, conds=[]):
+        W,b = get_weights(results_random_init, index)
+        v = generate_all_inputs(6)
+
+        v = filter_rows_eq(v, conds=conds)
+        mask = (v[:,intervention_index] == 1)
+        mask2 = (v[:,intervention_index] == 0)
+        def automap(v):
+            return autoencoder_forward_simple(v, W, b)
+
+        w = automap(v[mask]) - automap(v[mask2])
+
+        print(reduce(w,"solutions d-> d","mean"))
+        plt.imshow(w.T, aspect="auto", cmap="viridis")  # or "gray", etc.
+        plt.colorbar()  # optional, adds color scale
+        plt.show()
+
+    def visualize_v(W,b):
+
+        v = generate_all_inputs(6)
+        print(f"v:\n{v}")
+        # condition: keep rows where the last entry == 0
+
+        def automap(v):
+        # v = v[:10]
+            return autoencoder_forward_simple(v, W, b)
+        # print(f"v:\n{v}")
+        # for i in range(6):
+        #     print(i)
+        #     mask = (v[:, i] == 0)     # tensor([False, True])
+        #     mask2 = (v[:, i] == 1)     # tensor([False, True])
+        #     w = automap(v[mask]) - automap(v[mask2])
+
+        #     plt.imshow(w.T, aspect="auto", cmap="viridis")  # or "gray", etc.
+        #     plt.colorbar()  # optional, adds color scale
+        #     plt.show()
+
+        mask = (v[:, 2] == 1)     # tensor([False, True])
+        mask2 = (v[:, 4] == 1)     # tensor([False, True])
+        mask3 = (v[:, 2] == 0)     # tensor([False, True])
+        mask4 = (v[:, 4] == 0)     # tensor([False, True])
+
+        w = automap(v[mask & mask2]) - automap(v[mask3 & mask4])
+
+        plt.imshow(w.T, aspect="auto", cmap="viridis")  # or "gray", etc.
+        plt.colorbar()  # optional, adds color scale
+        plt.show()
+
+
+    # visualize_v(W,b)
+    # comp(W,b,0, [(1,0),(3,0),(5,0)])
+    index = 1
+    # comp(1, [])
+    comp_diff(1,4)
+
+
+
+
+
+    # plt.close()
+    # print(f"w:\n{w}")
+
+    # for i in range(n):
+
+
+    plot_results(results_random_init, loss_window=(0.0,0.16), sparsities=[0.426], plot_number=100)
+
+    # plot_specific_index(results_random_init, index)
+
+
+
+
 def main():
     data_path = "../../data"
     # version = "1.8.0"
@@ -844,19 +1054,102 @@ def main():
     results_optimal_init=results_1_14
     llc_estimates_optimal_init=llc_estimates_1_14
 
+
+
     # version = "1.15.0"
 
     # results_1_15= load_results(data_path, version)
     # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
 
-    # for index in range(1000):
-    for index in [0]:
-        plot_specific_index(results_random_init, index)
+    # for index in range(200,1000):
+    # # for index in [0]:
+    #     plot_specific_index(results_random_init, index)
 
     #TODO: check results from get_weights
     plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
 
-main()
+
+
+def perfect_solution():
+    #Notice: if we reparameterize like this, then finding the solution is probably faster?
+    #Could meta-learning look like finding the right parameterization?
+    m = 6
+    n = 2
+    l = 0.6 #
+    b = .65 #
+    test_set_size = 1000
+
+    w = torch.from_numpy(generate_2d_kgon_vertices(m, rot=0., force_length=l, pad_to=m)).float()
+    bias = torch.ones((m)) * b
+    sparse_value = 0.426
+
+    # model = ToyAutoencoder(6, 2, final_bias=True)
+    # test_set = SyntheticBinarySparseValued(test_set_size, 6, sparse_value)
+    # test_X = test_X.to(device)   # shape (N, 6)
+
+    mse = compute_loss(w,bias)
+
+    print(f"mse: {mse}")
+
+    # mean_loss_test = 0
+    # for sample in test_set:
+    #     output = model(sample)
+    #     mean_loss_test += criterion(output, sample)
+    # # print("Mean loss test:")
+    # loss_hist.append(mean_loss_test)
+    # print(f"index: {index}")
+    # print(mean_loss_test/test_set_size)
+
+    # print(f'index: {index}')
+    # plot_polygon(w, bias)
+    # plt.show()
+
+
+def evaluate_mse(l, b, test_X, m=6):
+    # weight matrix from polygon parameterisation
+    w = torch.from_numpy(
+        generate_2d_kgon_vertices(m, rot=0., force_length=l, pad_to=m)
+    ).float()
+
+    bias = torch.ones((m,)) * b
+
+    encoded = test_X @ w.T        # (N, 2)
+    decoded = encoded @ w         # (N, 6)
+    out = decoded + bias          # (N, 6)
+    mse = torch.mean((out - test_X).pow(2))
+    return mse.item()
+
+def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
+    # create one fixed test set
+    test_X = torch.stack([
+        x for x in SyntheticBinarySparseValued(test_set_size, m, sparse_value)
+    ]).float()
+
+    # define grid ranges
+    l_values = np.linspace(0.5, 0.7, 300)     # adjust ranges and resolution
+    b_values = np.linspace(0.4, 0.7, 300)
+
+    best_mse = float("inf")
+    best_params = None
+
+    for l in l_values:
+        for b in b_values:
+            mse = evaluate_mse(l, b, test_X, m=m)
+            if mse < best_mse:
+                best_mse = mse
+                best_params = (l, b)
+
+    print(f"Best parameters: l={best_params[0]:.4f}, b={best_params[1]:.4f}, MSE={best_mse:.6f}")
+    return best_params, best_mse
+
+if __name__ == "__main__":
+    best_params, best_mse = grid_search()
+
+
+# perfect_solution()
+model_geometry()
+
+# main()
 # calculate_convex_hull_vertices(torch.Tensor(
 # [[-1.8623e+00, -1.1313e+00,  8.4201e-01,  6.8771e-03, -1.5209e-02,
 #          -1.2631e+00],
