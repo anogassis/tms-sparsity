@@ -271,6 +271,10 @@ def compare_dataframes_and_results(
                 param_string += f"_x{x_scale}_y{y_scale}"
             if ymin != 1e-4:
                 param_string += f"_ymin{ymin}"
+            if test_loss:
+                param_string+= "_test"
+            else:
+                param_string+= "_train"
 
             save_path = f'{result_path}/loss_vs_llc_{param_string}'
             fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
