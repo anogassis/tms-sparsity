@@ -12,7 +12,7 @@ import warnings
 from collections import defaultdict
 
 from tms.models.autoencoder import ToyAutoencoder
-from tms.data.dataset import SyntheticBinaryValued
+from tms.data.dataset import SyntheticBinaryValued, SyntheticBinarySparseValued
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
 import pandas as pd
@@ -142,7 +142,19 @@ def create_color_mapping(sparsities):
 Results = Dict[int, Any] | List[Any]
 DfResultPair =  Tuple[pd.DataFrame, Results]
 
-def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPair], batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin):
+def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPair], batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin, test_loss=True,test_set_size = 10000):
+    test_X = {}
+
+    sparsities = collect_global_sparsities(df_results_pairs)
+    for sparsity in sparsities:
+        test_X[sparsity] = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
+
+    def compute_loss(W,b, sparsity):
+        encoded = test_X[sparsity] @ W.T          # (N, 2)
+        decoded = encoded @ W      # (N, 6)
+        out = decoded + b       # (N, 6)  (bias broadcasts)
+        return torch.mean((out-test_X[sparsity]).pow(2))   # scalar mean MSE over all samples and dims
+
     fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
     if len(df_results_pairs) == 1:
         axes = [axes]
@@ -165,13 +177,21 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
             llc = llc_estimates_dict.get((index, batch_size, learning_rate, position), np.nan)
             # print llc indices:
             # print(index, batch_size, learning_rate, position)
-            loss = results[index]['logs']['loss'].values[position]
+            if test_loss:
+                weights = results[index]['weights'][position]
+                W = weights['embedding.weight']
+                b = weights['unembedding.weight']
+                loss = compute_loss(W,b, sparsity)
+            else:
+                loss = results[index]['logs']['loss'].values[position]
             llc_loss_by_sparsity[sparsity].append((llc, loss))
             # print("Sparsity:", sparsity)
             # print("loss:", loss)
             # print("llc:", llc)
 
         for sparsity, llc_loss in llc_loss_by_sparsity.items():
+
+
             arr = np.asarray(llc_loss)
             mask = ~np.isnan(arr[:, 0])
             if not mask.any():
@@ -212,6 +232,7 @@ def compare_dataframes_and_results(
     ymin=1e-4,
     result_path='../results',
     plot:bool=True,
+    plot_test:bool=False,
 ):
     warnings.simplefilter(action='ignore', category=UserWarning)
 
@@ -224,8 +245,13 @@ def compare_dataframes_and_results(
 
         # Preaggregate all pairs
         # preaggs = [preaggregate_llc(est) for est, _ in df_results_pairs]
+        plot_test_param = [False]
+        if plot_test:
+            plot_test_param = [True, False]
 
-        for position in positions:
+        positions_test = [(position, test_loss) for test_loss in plot_test_param for position in positions]
+        for position,test_loss in positions_test:
+
             fig, step = plot_for_position(
                 position,
                 df_results_pairs,
@@ -236,7 +262,8 @@ def compare_dataframes_and_results(
                 y_scale,
                 sharex,
                 sharey,
-                ymin
+                ymin,
+                test_loss=test_loss,
             )
 
             param_string = f"bs{batch_size}_lr{learning_rate}_pos{position}_epoch{step}"
