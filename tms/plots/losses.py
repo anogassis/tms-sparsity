@@ -150,6 +150,8 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
         test_X[sparsity] = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
 
     def compute_loss(W,b, sparsity):
+        W = torch.Tensor(W)
+        b = torch.Tensor(b)
         encoded = test_X[sparsity] @ W.T          # (N, 2)
         decoded = encoded @ W      # (N, 6)
         out = decoded + b       # (N, 6)  (bias broadcasts)
