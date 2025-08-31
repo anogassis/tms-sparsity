@@ -224,8 +224,19 @@ def plot_specific_index(results, index, step=-1):
     new_weights = {}
     for idx, ndarray in result['weights'][PLOT_INDICES[-1]].items():
         new_weights[idx] = torch.from_numpy(ndarray)
-    
-    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index)
+
+
+    test_losses = []
+    for i, s in enumerate(STEPS):
+        weights = results[index]['weights'][i]
+        W = weights['embedding.weight']
+        b = weights['unembedding.bias']
+        loss = compute_loss(W,b)
+        test_losses.append((s,loss))
+
+    loss = compute_loss(Ws[-1],biases[-1])
+
+    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses)
     plt.show()
 
 def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
@@ -255,7 +266,6 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
             Ws = [results[index]['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
             biases = [results[index]['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
 
-            start = time.time()
             test_losses = []
             for i, s in enumerate(STEPS):
                 weights = results[index]['weights'][i]
@@ -263,8 +273,6 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
                 b = weights['unembedding.bias']
                 loss = compute_loss(W,b)
                 test_losses.append((s,loss))
-            end = time.time()
-            print(f"Took {end - start:.4f} seconds to compute losses")
 
             loss = compute_loss(Ws[-1],biases[-1])
             # print(f"Loss: {losses[step]}")
@@ -497,15 +505,6 @@ def autoencoder_forward(input_vec, W, b):
     decoded = W.t() @ encoded     # (6,)
     return torch.relu(decoded + b)
 
-def generate_all_inputs():
-    """Generate all 64 possible 6-bit binary inputs"""
-    all_inputs = []
-    for i in range(64):
-        binary = format(i, '06b')
-        input_vec = torch.tensor([float(int(b)) for b in binary])
-        all_inputs.append(input_vec)
-    return all_inputs
-
 def create_loss_matrix_simple(results, max_models=200, step=-1):
     """
     Create loss matrix for first max_models models only
@@ -513,7 +512,7 @@ def create_loss_matrix_simple(results, max_models=200, step=-1):
     print(f"\n=== Creating loss matrix for first {max_models} models ===")
     
     # Generate all inputs
-    all_inputs = generate_all_inputs()
+    all_inputs = generate_all_inputs(6)
     
     # Limit to first max_models
     num_models = min(max_models, len(results))
@@ -811,7 +810,7 @@ def create_annotated_dendrogram(results,indices=None,save_path=f"{plot_path}anno
 
 def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
 
-    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path)
+    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=True, result_path=plot_path,plot_test=True)
 
     EPSILON_KGON=0.05
     # plot_kgon_percentages(
@@ -1160,9 +1159,9 @@ if __name__ == "__main__":
 
 
 # perfect_solution()
-model_geometry()
+# model_geometry()
 
-# main()
+main()
 # calculate_convex_hull_vertices(torch.Tensor(
 # [[-1.8623e+00, -1.1313e+00,  8.4201e-01,  6.8771e-03, -1.5209e-02,
 #          -1.2631e+00],
