@@ -12,7 +12,7 @@ import warnings
 from collections import defaultdict
 
 from tms.models.autoencoder import ToyAutoencoder
-from tms.data.dataset import SyntheticBinaryValued
+from tms.data.dataset import SyntheticBinaryValued, SyntheticBinarySparseValued
 from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
 import pandas as pd
@@ -35,6 +35,7 @@ def plot_results_by_indices(results, indices):
         logs = results[index]['logs']
 
         losses = [logs.loc[logs['step'] == s, 'loss'].values[0] for s in STEPS]
+        test_losses = [logs.loc[logs['step'] == s, 'test_loss'].values[0] for s in STEPS]
 
         NUM_EPOCHS = results[index]['parameters']['num_epochs']
         PLOT_STEPS = [min(STEPS, key=lambda s: abs(s-i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
@@ -50,7 +51,7 @@ def plot_results_by_indices(results, indices):
     
         model.load_state_dict(new_weights)
 
-        test_set = SyntheticBinaryValued(10000, 6, sparse_value)
+        test_set = SyntheticBinarySparseValued(10000, 6, sparse_value)
         mean_loss_test = 0
         for sample in test_set:
             output = model(sample)
@@ -60,7 +61,7 @@ def plot_results_by_indices(results, indices):
         print(mean_loss_test/10000)
     
         model.load_state_dict(new_weights)
-        plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
+        plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, test_losses=test_losses)
         plt.show()
             
 

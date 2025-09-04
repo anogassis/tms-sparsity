@@ -310,7 +310,7 @@ def plot_polygons(Ws, biases, axes=None, ax_biases=None):
     for ax, W, ax_b, b in zip(axes, Ws, ax_biases, biases):
         plot_polygon(W, b=b, ax=ax, ax_bias=ax_b, ax_wnorm=ax_b)
 
-def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None):
+def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None, test_losses=None):
     """
     Plot the losses and weight snapshots of polygons.
 
@@ -357,8 +357,13 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
         ax = fig.add_subplot(gs[1, i], adjustable='box')
         ax_biases.append(ax)
         ax.set_xlim(0, 1.5)
-        
-    ax_losses.plot(steps, losses)
+
+    if test_losses is not None:
+        ax_losses.plot(steps, test_losses, label='Test Loss', color='orange', linestyle='--')
+        ax_losses.plot(steps, losses, label='Train Loss', color='blue')
+        ax_losses.legend()
+    else:
+        ax_losses.plot(steps, losses)
     ax_losses.set_xlabel("Step")
     ax_losses.set_ylabel("Loss")
     ax_losses.set_xscale(xscale)

@@ -19,7 +19,7 @@ from tms.utils.utils import load_results, get_first, iterate_container
 from tms.models.autoencoder import ToyAutoencoder
 from tms.llc import get_llc_data, preaggregate_llc
 from tms.plots.kgons import plot_losses_and_polygons
-from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair
+from tms.plots.losses import compare_dataframes_and_results, plot_results_by_indices, plot_results, Results, DfResultPair
 
 
 import numpy as np
@@ -198,53 +198,6 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
             print(f'index: {index}')
             plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
             plt.show()
-
-def plot_specific_index(results, index, step=-1):
-    """
-    Plot results for a specific index in the results list.
-    
-    Parameters
-    ----------
-    results : list
-        List of experiment results
-    index : int
-        Specific index to plot
-    step : int, optional
-        Step index for loss checking. Default is -1 (last step)
-    """
-    if index >= len(results):
-        print(f"Index {index} out of range for results of length {len(results)}")
-        return
-    
-    result = results[index]
-    
-    STEPS = result['parameters']['log_ivl']
-    logs = result['logs']
-    losses = [logs.loc[logs['step'] == s, 'loss'].values[0] for s in STEPS]
-    
-    sparsity = result['parameters']['sparsity']
-    
-    print(f"Plotting index {index}")
-    print(f"Sparsity: {sparsity}")
-    print(f"Loss at step {step}: {losses[step]}")
-    
-    NUM_EPOCHS = 20000
-    PLOT_STEPS = [min(STEPS, key=lambda s: abs(s-i)) for i in [0, 200, 2000, 10000, NUM_EPOCHS - 1]]
-    PLOT_INDICES = [STEPS.index(s) for s in PLOT_STEPS]
-    
-    Ws = [result['weights'][i]['embedding.weight'] for i in PLOT_INDICES]
-    biases = [result['weights'][i]['unembedding.bias'] for i in PLOT_INDICES]
-    kgon = calculate_convex_hull_vertices(Ws[-1], 0.05)
-
-    print(f"Kgon (with epsilon 0.05): {kgon}")
-    # Optional: Load model weights
-    model = ToyAutoencoder(6, 2, final_bias=True)
-    new_weights = {}
-    for idx, ndarray in result['weights'][PLOT_INDICES[-1]].items():
-        new_weights[idx] = torch.from_numpy(ndarray)
-    
-    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
-    plt.show()
 
 def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
     """
@@ -850,11 +803,10 @@ def main():
     # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
 
     # for index in range(1000):
-    for index in [0]:
-        plot_specific_index(results_random_init, index)
+    plot_results_by_indices(results_random_init, [24])
 
     #TODO: check results from get_weights
-    plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
+    # plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
 
 main()
 # calculate_convex_hull_vertices(torch.Tensor(
