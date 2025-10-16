@@ -17,6 +17,16 @@ from tms.plots.kgons import plot_losses_and_polygons
 from tms.utils.utils import iterate_container, get_first
 import pandas as pd
 
+
+def compute_test_loss(W,b, sparsity, test_set_size = 10000):
+    test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
+    if test_X is None:
+        raise ValueError("test_X must be provided")
+    encoded = test_X @ W.T          # (N, 2)
+    decoded = encoded @ W      # (N, 6)
+    out = torch.relu(decoded + b)       # (N, 6)  (bias broadcasts)
+    return torch.mean((out-test_X).pow(2))   # scalar mean MSE over all samples and dims
+
 def plot_results_by_indices(results, indices):
     """
     Plot the results of the experiment.
@@ -149,14 +159,6 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
     for sparsity in sparsities:
         test_X[sparsity] = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
 
-    def compute_loss(W,b, sparsity):
-        W = torch.Tensor(W)
-        b = torch.Tensor(b)
-        encoded = test_X[sparsity] @ W.T          # (N, 2)
-        decoded = encoded @ W      # (N, 6)
-        out = decoded + b       # (N, 6)  (bias broadcasts)
-        return torch.mean((out-test_X[sparsity]).pow(2))   # scalar mean MSE over all samples and dims
-
     fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
     if len(df_results_pairs) == 1:
         axes = [axes]
@@ -183,7 +185,7 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
                 weights = results[index]['weights'][position]
                 W = weights['embedding.weight']
                 b = weights['unembedding.bias']
-                loss = compute_loss(W,b, sparsity)
+                loss = compute_test_loss(W,b, sparsity)
             else:
                 loss = results[index]['logs']['loss'].values[position]
             llc_loss_by_sparsity[sparsity].append((llc, loss))
