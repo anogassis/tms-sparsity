@@ -22,7 +22,7 @@ from tms.utils.utils import load_results, get_first, iterate_container
 from tms.models.autoencoder import ToyAutoencoder
 from tms.llc import get_llc_data, preaggregate_llc
 from tms.plots.kgons import plot_losses_and_polygons, plot_polygon
-from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair
+from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair, compute_test_loss
 
 
 from einops import rearrange, reduce, repeat, einsum
@@ -51,15 +51,7 @@ import time
 plot_path="../../results/"
 
 
-sparse_value=0.426
-test_set_size = 10000
-test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparse_value)]).float()
 
-def compute_loss(W,b):
-    encoded = test_X @ W.T          # (N, 2)
-    decoded = encoded @ W      # (N, 6)
-    out = decoded + b       # (N, 6)  (bias broadcasts)
-    return torch.mean((out-test_X).pow(2))   # scalar mean MSE over all samples and dims
 
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
@@ -181,7 +173,7 @@ def plot_single_sparsity_position(
 
     return fig
 
-def plot_specific_index(results, index, step=-1):
+def plot_specific_index(results, index, step=-1, test_set_size = 10000):
     """
     Plot results for a specific index in the results list.
     
@@ -225,25 +217,26 @@ def plot_specific_index(results, index, step=-1):
     for idx, ndarray in result['weights'][PLOT_INDICES[-1]].items():
         new_weights[idx] = torch.from_numpy(ndarray)
 
+    
+
+
 
     test_losses = []
     for i, s in enumerate(STEPS):
         weights = results[index]['weights'][i]
         W = weights['embedding.weight']
         b = weights['unembedding.bias']
-        loss = compute_loss(W,b)
-        test_losses.append((s,loss))
-
-    loss = compute_loss(Ws[-1],biases[-1])
+        test_loss = compute_test_loss(W,b, sparsity)
+        test_losses.append((s,test_loss))
 
     plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses)
     plt.show()
 
 def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
     # loss_hist = []
-    for sparse_value in sparsities:
+    for sparsity in sparsities:
         plotted =0
-        print(f"Plot polygons for sparsity={sparse_value}")
+        print(f"Plot polygons for sparsity={sparsity}")
         for index in range(len(results)):
 
             STEPS = results[index]['parameters']['log_ivl']
@@ -251,7 +244,7 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
             losses = [logs.loc[logs['step'] == s, 'loss'].values[0] for s in STEPS]
 
             outside_loss_window = losses[step] < loss_window[0] or losses[step] > loss_window[1]
-            non_matching_sparsity = abs(results[index]['parameters']['sparsity'] - sparse_value) > epsilon
+            non_matching_sparsity = abs(results[index]['parameters']['sparsity'] - sparsity) > epsilon
             if non_matching_sparsity or outside_loss_window:
                 continue
             else:
@@ -271,10 +264,10 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
                 weights = results[index]['weights'][i]
                 W = weights['embedding.weight']
                 b = weights['unembedding.bias']
-                loss = compute_loss(W,b)
+                loss = compute_test_loss(W,b, sparsity)
                 test_losses.append((s,loss))
 
-            loss = compute_loss(Ws[-1],biases[-1])
+            loss = compute_test_loss(Ws[-1],biases[-1])
             # print(f"Loss: {losses[step]}")
             print(f"Loss: {loss}")
             model = ToyAutoencoder(6, 2, final_bias=True)
@@ -812,30 +805,30 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
 
     compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=True, result_path=plot_path,plot_test=True)
 
-    EPSILON_KGON=0.05
-    # plot_kgon_percentages(
-    #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
-    # )
-
-    plot_kgon_percentages(
-        results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
-    )
+    # EPSILON_KGON=0.05
+    # # plot_kgon_percentages(
+    # #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
+    # # )
 
     # plot_kgon_percentages(
-    #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
+    #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
     # )
-    plot_kgon_percentages(
-        results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
-    )
 
-    loss_matrices=[]
-    sparsities=[]
-    small_results = results_random_init[:10]
+    # # plot_kgon_percentages(
+    # #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
+    # # )
+    # plot_kgon_percentages(
+    #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
+    # )
 
-    create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
+    # loss_matrices=[]
+    # sparsities=[]
+    # small_results = results_random_init[:10]
 
-    for i in range(10):
-        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
+    # create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
+
+    # for i in range(10):
+    #     create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
 
 
 def autoencoder_forward_simple(
@@ -1025,7 +1018,7 @@ def model_geometry():
 
     plot_results(results_random_init, loss_window=(0.0,0.16), sparsities=[0.426], plot_number=100)
 
-    # plot_specific_index(results_random_init, index)
+    plot_specific_index(results_random_init, index)
 
 
 
@@ -1074,7 +1067,7 @@ def main():
     # results_1_15= load_results(data_path, version)
     # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
 
-    # for index in range(200,1000):
+    # for index in range(100,1000):
     # # for index in [0]:
     #     plot_specific_index(results_random_init, index)
 
@@ -1099,7 +1092,7 @@ def perfect_solution():
     # test_set = SyntheticBinarySparseValued(test_set_size, 6, sparse_value)
     # test_X = test_X.to(device)   # shape (N, 6)
 
-    mse = compute_loss(w,bias)
+    mse = compute_test_loss(w,bias)
 
     print(f"mse: {mse}")
 
@@ -1154,8 +1147,8 @@ def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
     print(f"Best parameters: l={best_params[0]:.4f}, b={best_params[1]:.4f}, MSE={best_mse:.6f}")
     return best_params, best_mse
 
-if __name__ == "__main__":
-    best_params, best_mse = grid_search()
+# if __name__ == "__main__":
+#     best_params, best_mse = grid_search()
 
 
 # perfect_solution()
