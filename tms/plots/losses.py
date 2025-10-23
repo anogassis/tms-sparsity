@@ -18,14 +18,17 @@ from tms.utils.utils import iterate_container, get_first
 import pandas as pd
 
 
-def compute_test_loss(W,b, sparsity, test_set_size = 10000):
-    test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
-    if test_X is None:
-        raise ValueError("test_X must be provided")
-    encoded = test_X @ W.T          # (N, 2)
-    decoded = encoded @ W      # (N, 6)
-    out = torch.relu(decoded + b)       # (N, 6)  (bias broadcasts)
-    return torch.mean((out-test_X).pow(2))   # scalar mean MSE over all samples and dims
+def compute_test_loss(W, b, test_X):
+    """Vectorized test loss computation using ReLU output."""
+    W = torch.as_tensor(W, dtype=torch.float32)
+    b = torch.as_tensor(b, dtype=torch.float32)
+    with torch.no_grad():
+        encoded = test_X @ W.T          # (N, 2)
+        decoded = encoded @ W           # (N, 6)
+        out = torch.relu(decoded + b)   # Apply model nonlinearity
+        loss = torch.mean((out - test_X).pow(2))
+    return loss.item()
+
 
 def plot_results_by_indices(results, indices):
     """
@@ -185,7 +188,9 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
                 weights = results[index]['weights'][position]
                 W = weights['embedding.weight']
                 b = weights['unembedding.bias']
-                loss = compute_test_loss(W,b, sparsity)
+                # print("Computing test loss for index", index, "sparsity", sparsity)
+                # TODO: vectorize this
+                loss = compute_test_loss(W,b, test_X=test_X[sparsity])
             else:
                 loss = results[index]['logs']['loss'].values[position]
             llc_loss_by_sparsity[sparsity].append((llc, loss))
@@ -205,19 +210,25 @@ def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPa
             axes[pair_index].scatter(llcs, losses, label=f"Sparsity: {round(sparsity, 3)}", color=color)
 
         if pair_index == 0:
-            title = "Initialized at random 4-gon"
+            title = "Autoencoders initialized at random 4-gon"
         if pair_index == 1:
-            title = "Initialized at optimal parameters for sparse inputs"
-        axes[pair_index].set_title(f"Pair {title}, Position {position}", fontsize=24)
-        axes[pair_index].set_xlabel("LLC")
-        axes[pair_index].set_ylabel("Loss")
+            title = "Autoencoders initialized at optimal parameters for sparse inputs"
+        axes[pair_index].set_title(title, fontsize=24)
+        axes[pair_index].set_xlabel("LLC", fontsize=22)
+        axes[pair_index].set_ylabel("Loss", fontsize=22)
         axes[pair_index].legend(fontsize=20)
+        axes[pair_index].tick_params(axis='both', labelsize=20)
         axes[pair_index].set_xscale(x_scale)
         axes[pair_index].set_yscale(y_scale)
         axes[pair_index].set_ylim(ymin=ymin)
 
     plt.tight_layout()
-    plt.suptitle(f"Loss and LLC After Epoch {steps[position]}",#, fontsize=16
+    if test_loss:
+        plt.suptitle(f"Test loss and LLC After Epoch {steps[position]}",#, fontsize=16
+                 fontsize=30,
+                 )
+    else:
+        plt.suptitle(f"Training loss and LLC After Epoch {steps[position]}",#, fontsize=16
                  fontsize=30,
                  )
     plt.subplots_adjust(top=0.9)
