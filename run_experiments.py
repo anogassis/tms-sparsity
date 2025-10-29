@@ -6,8 +6,10 @@ import tms.training.train as train
 from tms.utils.utils import load_results
 from tms.llc import estimate_llc, get_llc_data
 from tms.utils.logger import logger
+import multiprocessing as mp
 
 
+mp.set_start_method('spawn', force=True)
 
 def run_all_experiments(versions, data_path, parallel_experiments=16):
     """
