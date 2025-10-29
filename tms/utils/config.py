@@ -317,7 +317,7 @@ training_dicts = {
         "init_kgon": [4],
         "no_bias": [False],
         "init_zerobias": [False],
-        "prior_std": [10.0],
+        "prior_std": [1.0],
         "seed": [i for i in range(200)],
         "use_optimal_solution": [False],
         "data_generating_class": [SyntheticBinarySparseValued],
