@@ -14,30 +14,32 @@ mp.set_start_method('spawn', force=True)
 def run_all_experiments(versions, data_path, parallel_experiments=16):
     """
     Run experiments for different versions and estimate LLC.
+
+    Args:
+        versions (list): List of version strings.
+        data_path (str): Path to the data directory.
     """
     logger.info("--------------------")
     logger.info(f"Starting experiments for versions={versions}")
+
     parameters = [config.training_dicts[version] for version in versions]
     file_names = [
         os.path.join(data_path, f"logs_loss_{version}") for version in versions
     ]
 
     for version, params, file_name in zip(versions, parameters, file_names):
+
+        # If file exists, skip the experiments
         if os.path.exists(f"{file_name}_all_runs.pkl"):
             logger.info(f"File {file_name}_all_runs.pkl already exists. Skipping.")
             continue
 
         logger.info(
-            f"Running BATCHED experiments for version={version}, parallel={parallel_experiments}"
+            f"Running experiments for version={version}, params={params}, file_name={file_name}"
         )
-
-        results = train.run_experiments_batched(  # ← Changed function
-            params,
-            save=True,
-            file_name=file_name,
-            parallel_experiments=parallel_experiments  # ← New parameter
+        results = experiments.run_experiments(
+            params, train.create_and_train, save=True, file_name=file_name
         )
-
         logger.info(f"Experiments completed for version={version}")
 
     for version in versions:
