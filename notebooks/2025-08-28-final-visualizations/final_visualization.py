@@ -23,6 +23,7 @@ from tms.models.autoencoder import ToyAutoencoder
 from tms.llc import get_llc_data, preaggregate_llc
 from tms.plots.kgons import plot_losses_and_polygons, plot_polygon
 from tms.plots.losses import compare_dataframes_and_results, Results, DfResultPair, compute_test_loss
+import random
 
 
 from einops import rearrange, reduce, repeat, einsum
@@ -50,8 +51,14 @@ import time
 
 plot_path="../../results/"
 
-
-
+def compute_test_loss(W,b, sparsity, test_set_size = 10000):
+    test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
+    if test_X is None:
+        raise ValueError("test_X must be provided")
+    encoded = test_X @ W.T          # (N, 2)
+    decoded = encoded @ W      # (N, 6)
+    out = torch.relu(decoded + b)       # (N, 6)  (bias broadcasts)
+    return torch.mean((out-test_X).pow(2))   # scalar mean MSE over all samples and dims
 
 def get_or_create_preaggregated_llc_csv(results, version: str, data_dir: str) -> pd.DataFrame:
     """Load preaggregated LLC values from CSV, or generate and save them."""
@@ -229,8 +236,9 @@ def plot_specific_index(results, index, step=-1, test_set_size = 10000):
         test_loss = compute_test_loss(W,b, sparsity)
         test_losses.append((s,test_loss))
 
-    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses)
-    plt.show()
+    plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses, sparsity=sparsity)
+    # plt.show()
+    plt.savefig(f"{plot_path}specific_index_{index}_sparsity_{sparsity:.3f}.png", dpi=300)
 
 def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), weird_indices = [], sparsities= [0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98 , 0.988, 0.993], epsilon=0.001):
     # loss_hist = []
@@ -267,7 +275,10 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
                 loss = compute_test_loss(W,b, sparsity)
                 test_losses.append((s,loss))
 
-            loss = compute_test_loss(Ws[-1],biases[-1])
+
+            print(f"Plotting index {index}")
+            print(Ws[-1])
+            loss = compute_test_loss(Ws[-1],biases[-1], sparsity)
             # print(f"Loss: {losses[step]}")
             print(f"Loss: {loss}")
             model = ToyAutoencoder(6, 2, final_bias=True)
@@ -278,8 +289,9 @@ def plot_results(results, plot_number =5, step =-1, loss_window = (0.14, .16), w
 
             # print(f'index: {index}')
             #all_weights = [[results[j]['weights'][i] for i in PLOT_INDICES] for j in range(len(results))]
-            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses)
-            plt.show()
+            plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases, run=index, test_losses=test_losses, sparsity=sparsity)
+            # plt.show()
+            plt.savefig(f"{plot_path}sparsity_{sparsity:.3f}_run_{index}.png", dpi=300)
 
 def get_weights(results:Results, index:int, step:int=-1)->tuple[ torch.Tensor, torch.Tensor ]:
     """
@@ -1066,13 +1078,17 @@ def main():
 
     # results_1_15= load_results(data_path, version)
     # llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+    #plot_results(results_optimal_init, loss_window=(0.0,0.16), sparsities=[0.426], plot_number=100)
+    # random.seed(42)
+    # indices = [x for x in range(0,2000)]
+    # random.shuffle(indices)
+    # for index in indices[:50]:
+    for index in [43, 132, 148, 8, 22, 88, 397,326,236,367,362,280, 528, 575, 407, 470,447,427,566,557, 750, 756, 621, 661, 722, 977, 963, 983]:
+        plot_specific_index(results_random_init, index)
 
-    # for index in range(100,1000):
-    # # for index in [0]:
-    #     plot_specific_index(results_random_init, index)
 
     #TODO: check results from get_weights
-    plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
+    #plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
 
 
 
@@ -1082,19 +1098,35 @@ def perfect_solution():
     m = 6
     n = 2
     l = 0.6 #
-    b = .65 #
+    b = .67 #
 
     w = torch.from_numpy(generate_2d_kgon_vertices(m, rot=0., force_length=l, pad_to=m)).float()
+
     bias = torch.ones((m)) * b
     sparse_value = 0.426
+    test_set_size = 10000
 
     # model = ToyAutoencoder(6, 2, final_bias=True)
-    # test_set = SyntheticBinarySparseValued(test_set_size, 6, sparse_value)
-    # test_X = test_X.to(device)   # shape (N, 6)
+    # test_X = SyntheticBinarySparseValued(test_set_size, 6, sparse_value)
 
-    mse = compute_test_loss(w,bias)
+    # test_X = torch.stack([
+    #     x for x in SyntheticBinarySparseValued(test_set_size, m, sparse_value)
+    # ]).float()
 
-    print(f"mse: {mse}")
+    if test_X is None:
+        raise ValueError("test_X must be provided")
+    encoded = test_X @ w.T          # (N, 2)
+    decoded = encoded @ w      # (N, 6)
+    out = torch.relu(decoded + b)       # (N, 6)  (bias broadcasts)
+
+
+    cross_entropy_loss = F.binary_cross_entropy_with_logits(
+        out,
+        test_X,
+        reduction='mean'
+    )
+
+    print(f"cross_entropy_loss: {cross_entropy_loss}")
 
     # mean_loss_test = 0
     # for sample in test_set:
@@ -1120,7 +1152,7 @@ def evaluate_mse(l, b, test_X, m=6):
 
     encoded = test_X @ w.T        # (N, 2)
     decoded = encoded @ w         # (N, 6)
-    out = decoded + bias          # (N, 6)
+    out = torch.relu(decoded + bias)          # (N, 6)
     mse = torch.mean((out - test_X).pow(2))
     return mse.item()
 
@@ -1149,6 +1181,7 @@ def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
 
 # if __name__ == "__main__":
 #     best_params, best_mse = grid_search()
+
 
 
 # perfect_solution()
