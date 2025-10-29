@@ -10,7 +10,7 @@ import multiprocessing as mp
 
 mp.set_start_method('spawn', force=True)
 
-def run_all_experiments(versions, data_path):
+def run_all_experiments(versions, data_path, n_jobs: int = None):
     """
     Run experiments for different versions and estimate LLC.
 
@@ -37,7 +37,7 @@ def run_all_experiments(versions, data_path):
             f"Running experiments for version={version}, params={params}, file_name={file_name}"
         )
         results = experiments.run_experiments(
-            params, train.create_and_train, save=True, file_name=file_name
+            params, train.create_and_train, save=True, file_name=file_name, n_jobs=n_jobs
         )
         logger.info(f"Experiments completed for version={version}")
 
@@ -57,4 +57,4 @@ def run_all_experiments(versions, data_path):
 if __name__ == "__main__":
     VERSIONS = ["1.15.0"]
     DATA_PATH = "data"
-    run_all_experiments(VERSIONS, DATA_PATH)
+    run_all_experiments(VERSIONS, DATA_PATH, n_jobs=2)
