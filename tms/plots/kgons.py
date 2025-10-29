@@ -310,7 +310,7 @@ def plot_polygons(Ws, biases, axes=None, ax_biases=None):
     for ax, W, ax_b, b in zip(axes, Ws, ax_biases, biases):
         plot_polygon(W, b=b, ax=ax, ax_bias=ax_b, ax_wnorm=ax_b)
 
-def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None, test_losses=[]):
+def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None, test_losses=[],sparsity=None):
     """
     Plot the losses and weight snapshots of polygons.
 
@@ -347,6 +347,8 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     max_x, min_x = max([np.max(W[0]) for W in Ws]), min([np.min(W[0]) for W in Ws])
     max_y, min_y = max([np.max(W[1]) for W in Ws]), min([np.min(W[1]) for W in Ws])
 
+    max_biases = [np.max(np.abs(b)) for b in biases]
+
     for i in range(len(Ws)):
         ax = fig.add_subplot(gs[0, i], adjustable='box') 
         ax.set_aspect('equal')
@@ -356,7 +358,7 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     for i in range(len(Ws)):
         ax = fig.add_subplot(gs[1, i], adjustable='box')
         ax_biases.append(ax)
-        ax.set_xlim(0, 1.5)
+        ax.set_xlim(0, max_biases[i]+0.5)
 
 
     if test_losses:
@@ -375,7 +377,9 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     version_str = f"Version: {version}" if version is not None else ""
     batch_size_str = f"Batch size: {batch_size}" if batch_size is not None else ""
     run_str = f"Run: {run}" if run is not None else ""
-    plt.suptitle("Loss and Weight snapshots, " + batch_size_str + " " + run_str + " " + version_str)
+    sparsity_str = f"Sparsity: {sparsity}" if sparsity is not None else ""
+    plt.suptitle("Loss and Weight snapshots, " + sparsity_str +
+                 " " + batch_size_str + " " + run_str + " " + version_str)
     plt.tight_layout()
 
 def plot_experiments(
