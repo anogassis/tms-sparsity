@@ -327,8 +327,8 @@ training_dicts = {
 test_dict = {
     "m": [6],
     "n": [2],
-    "num_samples": [1024],
-    "batch_size": [300],
+    "num_samples": [5],
+    "batch_size": [1024],
     "num_epochs": [20000],
     "sparsity": [0.426],
     "lr": [0.005],
