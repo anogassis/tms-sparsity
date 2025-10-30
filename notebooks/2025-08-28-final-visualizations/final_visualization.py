@@ -1183,11 +1183,26 @@ def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
 #     best_params, best_mse = grid_search()
 
 
+def visualize_debug():
+    data_path = "../../data"
+    version = "debug"
+    results_debug= load_results(data_path, version)
+    llc_estimates_debug = get_or_create_preaggregated_llc_csv(results_debug, version, data_path)
+    for i in range(10):
+        plot_specific_index(results_debug, i)
+    compare_dataframes_and_results(
+        ((llc_estimates_debug, results_debug),(llc_estimates_debug, results_debug)),
+        ymin=0,
+        plot=True,
+        result_path=plot_path,
+        plot_test=True
+    )
 
 # perfect_solution()
 # model_geometry()
 
-main()
+# main()
+visualize_debug()
 # calculate_convex_hull_vertices(torch.Tensor(
 # [[-1.8623e+00, -1.1313e+00,  8.4201e-01,  6.8771e-03, -1.5209e-02,
 #          -1.2631e+00],
