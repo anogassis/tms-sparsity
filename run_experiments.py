@@ -60,4 +60,4 @@ if __name__ == "__main__":
     # VERSIONS = ["debug_1.15.0"]
 
     DATA_PATH = "data"
-    run_all_experiments(version, DATA_PATH, n_jobs=1)
+    run_all_experiments([version], DATA_PATH, n_jobs=1)
