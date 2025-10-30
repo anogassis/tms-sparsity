@@ -164,7 +164,7 @@ def estimate_llc(
     num_chains=5,
     num_draws=500,
     num_burnin_steps=0,
-    num_workers=32,
+    num_workers=4,
 ):
     os.makedirs(data_directory, exist_ok=True)
 

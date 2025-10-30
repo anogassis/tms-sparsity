@@ -57,4 +57,4 @@ def run_all_experiments(versions, data_path, n_jobs: int = None):
 if __name__ == "__main__":
     VERSIONS = ["1.15.0"]
     DATA_PATH = "data"
-    run_all_experiments(VERSIONS, DATA_PATH, n_jobs=2)
+    run_all_experiments(VERSIONS, DATA_PATH, n_jobs=8)
