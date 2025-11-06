@@ -362,13 +362,17 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
 
 
     if test_losses:
-        ax_losses.plot(steps, losses, [x[0] for x in test_losses], [x[1] for x in test_losses])
+        ax_losses.plot(steps, losses, label="Train Loss")
+        ax_losses.plot([x[0] for x in test_losses], [x[1] for x in test_losses], label="Test Loss")
+
     else:
         ax_losses.plot(steps, losses)
     ax_losses.set_xlabel("Step")
     ax_losses.set_ylabel("Loss")
     ax_losses.set_xscale(xscale)
     ax_losses.set_yscale(yscale)
+    ax_losses.legend()
+
 
     for i, step in enumerate(highlights):
         ax_losses.axvline(step, color="gray", linestyle="--")

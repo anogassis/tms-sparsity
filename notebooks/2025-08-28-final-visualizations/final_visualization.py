@@ -814,7 +814,7 @@ def create_annotated_dendrogram(results,indices=None,save_path=f"{plot_path}anno
 
     return fig, ax
 
-def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame, version):
+def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame, random_version):
 
 
     EPSILON_KGON=0.05
@@ -841,7 +841,7 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     # create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
     for i in range(10):
-        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}_{version}.svg")
+        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}_{random_version}.svg")
 
 
 def autoencoder_forward_simple(
@@ -1090,13 +1090,14 @@ def main():
     # indices = [x for x in range(0,2000)]
     # random.shuffle(indices)
     # for index in indices[:50]:
-    # for index in [43, 132, 148, 8, 22, 88, 397,326,236,367,362,280, 528, 575, 407, 470,447,427,566,557, 750, 756, 621, 661, 722, 977, 963, 983]:
-    #     plot_specific_index(results_random_init, index)
-    #     plt.show()
+    old_indices = [43, 132, 148, 8, 22, 88, 397,326,236,367,362,280, 528, 575, 407, 470,447,427,566,557, 750, 756, 621, 661, 722, 977, 963, 983]
+    new_indices = [187, 74, 85, 131, 37, 43 , 373, 207, 236, 331, 252, 389, 554, 564, 457, 403, 553, 679, 635, 683, 754, 714, 886, 954, 931, 808, 1079, 1108, 1196, 1047, 1335, 1206, 1257, 1242, 1577, 1551, 1589, 1459, 1689, 1751, 1786, 1759, 1693,1886, 1857, 1831, 1930]
+    for index in new_indices:
+        plot_specific_index(results_random_init, index)
 
 
     #TODO: check results from get_weights
-    plot_everything(results_random_init=results_random_init, llc_estimates_random_init=llc_estimates_random_init, results_optimal_init=results_optimal_init, llc_estimates_optimal_init=llc_estimates_optimal_init, version="1.15.0")
+    plot_everything(results_random_init=results_random_init, llc_estimates_random_init=llc_estimates_random_init, results_optimal_init=results_optimal_init, llc_estimates_optimal_init=llc_estimates_optimal_init, random_version="1.15.0")
 
 
 
