@@ -225,24 +225,6 @@ def create_and_train_batched(
 ) -> Tuple[List[pd.DataFrame], List[List[Dict[str, Any]]], Any, Any]:
     """
     Train multiple models in parallel on the same data.
-
-    New parameters
-    --------------
-    n_parallel_models : int
-        Number of models to train in parallel (uses batched operations)
-    all_seeds : List[int]
-        List of seeds for each parallel model (should have length n_parallel_models)
-
-    Returns
-    -------
-    logs_list : List[pd.DataFrame]
-        List of logs for each model
-    weights_list : List[List[Dict]]
-        List of weight histories for each model
-    dataset : Dataset
-        Training dataset (shared across all models)
-    dataset_test : Dataset
-        Test dataset (shared across all models)
     """
     if log_ivl is None:
         log_ivl = []
@@ -277,8 +259,8 @@ def create_and_train_batched(
                 init_weights["b"].flatten()
             ).float()
 
-    # Create shared datasets (only once!)
-    torch.manual_seed(seed)  # Use base seed for data generation
+    # Create shared datasets
+    torch.manual_seed(seed)
     dataset = data_generating_class(num_samples, m, sparsity)
     dataset_test = data_generating_class(num_samples_test, m, sparsity)
 
@@ -286,20 +268,17 @@ def create_and_train_batched(
     dataloader_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False)
 
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
-    criterion = nn.MSELoss(reduction='none')  # Keep per-element loss
+    criterion = nn.MSELoss(reduction='none')
 
-    # Prepare logs for each model
+    # Prepare logs for each model - FIXED: ensure columns exist even if log_ivl is empty
     logs_list = [
-        pd.DataFrame([
-            {
-                "loss": None,
-                "acc": None,
-                "test_loss": None,
-                "test_acc": None,
-                "step": step,
-            }
-            for step in log_ivl
-        ])
+        pd.DataFrame({
+            "loss": [None] * len(log_ivl),
+            "acc": [None] * len(log_ivl),
+            "test_loss": [None] * len(log_ivl),
+            "test_acc": [None] * len(log_ivl),
+            "step": log_ivl,
+        })
         for _ in range(n_parallel_models)
     ]
 
@@ -319,16 +298,13 @@ def create_and_train_batched(
             total_samples = 0
             for batch in dataloader:
                 batch = batch.to(device)
-                outputs = model(batch)  # [n_models, batch_size, input_dim]
+                outputs = model(batch)
 
-                # Expand batch for comparison: [1, batch_size, input_dim] → [n_models, batch_size, input_dim]
                 batch_expanded = batch.unsqueeze(0).expand(n_parallel_models, -1, -1)
 
-                # Compute loss per model: [n_models]
                 batch_losses = criterion(outputs, batch_expanded).mean(dim=[1, 2])
                 losses += batch_losses * len(batch)
 
-                # Compute accuracy per model
                 batch_accs = (outputs.round() == batch_expanded).float().mean(dim=[1, 2])
                 accs += batch_accs * len(batch)
 
@@ -357,15 +333,12 @@ def create_and_train_batched(
 
         # Update logs for each model
         for model_idx in range(n_parallel_models):
-            logs_list[model_idx].loc[
-                logs_list[model_idx]["step"] == step,
-                ["loss", "acc", "test_loss", "test_acc"]
-            ] = [
-                losses[model_idx].item(),
-                accs[model_idx].item(),
-                losses_test[model_idx].item(),
-                accs_test[model_idx].item(),
-            ]
+            # FIXED: Use .loc properly
+            mask = logs_list[model_idx]["step"] == step
+            logs_list[model_idx].loc[mask, "loss"] = losses[model_idx].item()
+            logs_list[model_idx].loc[mask, "acc"] = accs[model_idx].item()
+            logs_list[model_idx].loc[mask, "test_loss"] = losses_test[model_idx].item()
+            logs_list[model_idx].loc[mask, "test_acc"] = accs_test[model_idx].item()
 
             # Store weights for this model
             model_state = {
@@ -386,89 +359,12 @@ def create_and_train_batched(
             batch = batch.to(device)
             optimizer.zero_grad()
 
-            outputs = model(batch)  # [n_models, batch_size, input_dim]
+            outputs = model(batch)
             batch_expanded = batch.unsqueeze(0).expand(n_parallel_models, -1, -1)
 
-            # Average loss across all models and samples
             loss = criterion(outputs, batch_expanded).mean()
 
             loss.backward()
             optimizer.step()
 
             step += 1
-            if step in log_ivl:
-                log(step)
-
-    return logs_list, weights_list, dataset, dataset_test
-
-
-def run_experiments(
-    training_dict: Dict[str, List[Any]],
-    train_func: Callable[[Dict[str, Any]], Any],
-    save: bool = False,
-    file_name: str = None,
-    n_jobs: int = None,
-) -> List[Dict[str, Any]]:
-    """
-    Runs experiments for all combinations of parameters in the training dictionary,
-    with an incremental run_id starting at 0, using multiprocessing.
-
-    Parameters
-    ----------
-    training_dict : dict
-        A dictionary where keys are parameter names and values are lists of parameter values.
-    train_func : callable
-        A function that takes a dictionary of parameters and returns the result of the training.
-    save : bool
-        A flag to save the results of each run.
-    file_name : str
-        The name of the file to save the results.
-    n_jobs : int, optional
-        Number of parallel jobs. Defaults to cpu_count() - 1.
-
-    Returns
-    -------
-    List[dict]
-        A list of dictionaries, each containing the run_id, parameters used, and the result of the training.
-    """
-    # Extract parameter names and their values
-    param_names = list(training_dict.keys())
-    param_values = [training_dict[name] for name in param_names]
-
-    # Generate all combinations of parameters
-    combinations = list(itertools.product(*param_values))
-
-    # Prepare arguments for each run
-    args_list = [
-        (run_id, combination, param_names, train_func, save, file_name)
-        for run_id, combination in enumerate(combinations)
-    ]
-
-    # Determine number of processes
-    if n_jobs is None:
-        n_jobs = max(1, cpu_count() - 1)  # Leave one core free
-
-    logger.info(f"Running {len(combinations)} experiments using {n_jobs} processes")
-
-    # Run experiments in parallel
-    with Pool(processes=n_jobs) as pool:
-        results = pool.map(_run_single_experiment, args_list)
-
-    # Collect all results
-    all_results = []
-    for idx in range(len(combinations)):
-        pkl_file_name = file_name + "_" + str(idx) + ".pkl"
-        with open(pkl_file_name, "rb") as file:
-            all_results.append(pickle.load(file))
-
-    logger.info("All runs completed")
-
-    if save:
-        with open(file_name + "_all_runs.pkl", "wb") as file:
-            pickle.dump(all_results, file)
-        logger.info(f"All results saved to {file_name}_all_runs.pkl")
-
-    return all_results
-
-from collections import defaultdict
-import itertools
