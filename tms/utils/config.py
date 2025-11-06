@@ -344,28 +344,6 @@ training_dicts = {
         "use_optimal_solution": [False],
         "data_generating_class": [SyntheticBinarySparseValued],
     },
-
-    "1.17.0":
-    # Same as 1.15. But with prior std of 0.1
-    {
-        "m": [6],
-        "n": [2],
-        "num_samples": [1024],
-        "num_samples_test": [192],
-        "batch_size": [1024],
-        "num_epochs": [20000],
-        "sparsity": [x for x in generate_sparsity_values(5, 10) if x != 0] + [1],
-        "lr": [0.05],
-        "momentum": [0.9],
-        "weight_decay": [0.0],
-        "init_kgon": [4],
-        "no_bias": [False],
-        "init_zerobias": [False],
-        "prior_std": [1.0],
-        "seed": [i for i in range(200)],
-        "use_optimal_solution": [False],
-        "data_generating_class": [SyntheticBinarySparseValued],
-    },
 }
 
 test_dict = {
