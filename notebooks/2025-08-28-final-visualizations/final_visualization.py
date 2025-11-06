@@ -813,7 +813,7 @@ def create_annotated_dendrogram(results,indices=None,save_path=f"{plot_path}anno
 
     return fig, ax
 
-def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
+def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame, version):
 
 
     EPSILON_KGON=0.05
@@ -837,10 +837,10 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
     small_results = results_random_init[:10]
     compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path,plot_test=True)
 
-    create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
+    # create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
     for i in range(10):
-        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
+        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}_{version}.svg")
 
 
 def autoencoder_forward_simple(
@@ -1095,7 +1095,7 @@ def main():
 
 
     #TODO: check results from get_weights
-    plot_everything(results_random_init=results_random_init, llc_estimates_random_init=llc_estimates_random_init, results_optimal_init=results_optimal_init, llc_estimates_optimal_init=llc_estimates_optimal_init)
+    plot_everything(results_random_init=results_random_init, llc_estimates_random_init=llc_estimates_random_init, results_optimal_init=results_optimal_init, llc_estimates_optimal_init=llc_estimates_optimal_init, version="1.15.0")
 
 
 
