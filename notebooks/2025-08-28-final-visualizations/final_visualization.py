@@ -49,7 +49,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.cluster.hierarchy import linkage, dendrogram
 import time
 
-plot_path="../../results/"
+plot_path="results/"
 
 def compute_test_loss(W,b, sparsity, test_set_size = 10000):
     test_X = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
@@ -402,7 +402,7 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             
 TEMPLATE_KGON_PERCENTAGES = "% Frequency of k-gons over training steps\n(sparsity={sparse_value:.3f})"
 
-def plot_kgon_percentages(results, sparsities=[1,0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon_sparsity=0.001, plot_path="../../results/",
+def plot_kgon_percentages(results, sparsities=[1,0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon_sparsity=0.001, plot_path="results/",
     save_path_tmpl="{plot_path}kgon_frequencies_sparsity_{sparse_value:.3f}_{name}_{epsilon_kgon}.png",
     title_tmpl=TEMPLATE_KGON_PERCENTAGES,
     name="random",
@@ -888,7 +888,7 @@ def with_interactive_plots(func):
 
 # @with_interactive_plots
 def model_geometry():
-    data_path = "../../data"
+    data_path = "data/"
     model_plot_path = f"{plot_path}model-geometry/"
 
     version = "1.13.0"
@@ -1036,7 +1036,7 @@ def model_geometry():
 
 
 def main():
-    data_path = "../../data"
+    data_path = "data"
     # version = "1.8.0"
 
     # results_1_8= load_results(data_path, version)
@@ -1191,7 +1191,7 @@ def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
 
 
 def visualize_debug():
-    data_path = "../../data"
+    data_path = "data"
     version = "1.15.0"
     results_debug= load_results(data_path, version)
     # llc_estimates_debug = get_or_create_preaggregated_llc_csv(results_debug, version, data_path)
