@@ -453,6 +453,7 @@ def plot_kgon_percentages(results, sparsities=[1,0.426, 0.671, 0.811, 0.892, 0.9
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
+    plt.close('all')
 
 
 def generate_2d_kgon_vertices(k, rot:float=0., pad_to=None, force_length=0.9):
