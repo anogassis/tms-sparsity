@@ -37,8 +37,8 @@ def run_all_experiments(versions, data_path, n_jobs: int = None):
         logger.info(
             f"Running experiments for version={version}, params={params}, file_name={file_name}"
         )
-        results = experiments.run_experiments_batched(
-            params, train.create_and_train_batched , save=True, file_name=file_name, n_jobs=n_jobs
+        results = experiments.run_experiments(
+            params, train.create_and_train, save=True, file_name=file_name, n_jobs=n_jobs
         )
         logger.info(f"Experiments completed for version={version}")
 
