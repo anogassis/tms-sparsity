@@ -6,6 +6,13 @@ import pickle
 from typing import Any, Callable, Dict, List
 from multiprocessing import Pool, cpu_count
 from tms.utils.logger import logger
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+from typing import Dict, Any, List, Tuple
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 def _run_single_experiment(args):
@@ -59,7 +66,10 @@ def _run_single_experiment(args):
     return run_id, run_result
 
 
-def run_experiments(
+
+from collections import defaultdict
+
+def run_experiments_batched(
     training_dict: Dict[str, List[Any]],
     train_func: Callable[[Dict[str, Any]], Any],
     save: bool = False,
@@ -67,61 +77,70 @@ def run_experiments(
     n_jobs: int = None,
 ) -> List[Dict[str, Any]]:
     """
-    Runs experiments for all combinations of parameters in the training dictionary,
-    with an incremental run_id starting at 0, using multiprocessing.
-
-    Parameters
-    ----------
-    training_dict : dict
-        A dictionary where keys are parameter names and values are lists of parameter values.
-    train_func : callable
-        A function that takes a dictionary of parameters and returns the result of the training.
-    save : bool
-        A flag to save the results of each run.
-    file_name : str
-        The name of the file to save the results.
-    n_jobs : int, optional
-        Number of parallel jobs. Defaults to cpu_count() - 1.
-
-    Returns
-    -------
-    List[dict]
-        A list of dictionaries, each containing the run_id, parameters used, and the result of the training.
+    Runs experiments with parallelization within sparsity groups.
+    Models with the same sparsity share data and train in parallel batches.
     """
-    # Extract parameter names and their values
     param_names = list(training_dict.keys())
     param_values = [training_dict[name] for name in param_names]
-
-    # Generate all combinations of parameters
     combinations = list(itertools.product(*param_values))
 
-    # Prepare arguments for each run
-    args_list = [
-        (run_id, combination, param_names, train_func, save, file_name)
-        for run_id, combination in enumerate(combinations)
-    ]
+    # Group by sparsity
+    sparsity_idx = param_names.index("sparsity")
+    seed_idx = param_names.index("seed")
 
-    # Determine number of processes
-    if n_jobs is None:
-        n_jobs = max(1, cpu_count() - 1)  # Leave one core free
+    sparsity_groups = defaultdict(list)
+    for run_id, combination in enumerate(combinations):
+        sparsity_val = combination[sparsity_idx]
+        sparsity_groups[sparsity_val].append((run_id, combination))
 
-    logger.info(f"Running {len(combinations)} experiments using {n_jobs} processes")
+    logger.info(f"Running {len(combinations)} experiments across {len(sparsity_groups)} sparsity groups")
 
-    # Run experiments in parallel
-    with Pool(processes=n_jobs) as pool:
-        results = pool.map(_run_single_experiment, args_list)
+    all_results = [None] * len(combinations)
 
-    # Collect all results
-    all_results = []
-    for idx in range(len(combinations)):
-        pkl_file_name = file_name + "_" + str(idx) + ".pkl"
-        with open(pkl_file_name, "rb") as file:
-            all_results.append(pickle.load(file))
+    for sparsity_val, group_runs in sparsity_groups.items():
+        logger.info(f"Processing sparsity={sparsity_val} with {len(group_runs)} runs")
+
+        # Extract base params from first run
+        first_run_id, first_combination = group_runs[0]
+        base_params = dict(zip(param_names, first_combination))
+
+        # Collect all seeds for this sparsity
+        all_seeds = [combo[seed_idx] for _, combo in group_runs]
+
+        # Update params for batched training
+        base_params['n_parallel_models'] = len(group_runs)
+        base_params['all_seeds'] = all_seeds
+
+        # Remove 'seed' from base_params since we're using 'all_seeds' instead
+        base_params.pop('seed', None)
+
+        # Train all models for this sparsity in parallel - unpack the dict
+        logs_list, weights_list, dataset, dataset_test = train_func(**base_params)
+
+        # Unpack results back to individual runs
+        for idx, (run_id, combination) in enumerate(group_runs):
+            params = dict(zip(param_names, combination))
+            result = {
+                "run_id": run_id,
+                "params": params,
+                "logs": logs_list[idx],
+                "weights": weights_list[idx],
+                "dataset": dataset,
+                "dataset_test": dataset_test,
+            }
+
+            all_results[run_id] = result
+
+            # Save individual result
+            if save:
+                pkl_file_name = f"{file_name}_{run_id}.pkl"
+                with open(pkl_file_name, "wb") as file:
+                    pickle.dump(result, file)
 
     logger.info("All runs completed")
 
     if save:
-        with open(file_name + "_all_runs.pkl", "wb") as file:
+        with open(f"{file_name}_all_runs.pkl", "wb") as file:
             pickle.dump(all_results, file)
         logger.info(f"All results saved to {file_name}_all_runs.pkl")
 

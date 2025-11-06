@@ -256,3 +256,64 @@ def compute_kgon_percentages(weights: Dict[int, List[List[Dict[str, torch.Tensor
         for k in k_values:
             percentages += kgon_percentages[sparsity][k][:-1]  # fixme: reduced length by one but not sure why this is longer?
     return kgon_percentages
+
+
+
+class BatchedToyAutoencoder(nn.Module):
+    """Train multiple independent autoencoders in parallel using batched operations."""
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        n_models: int,
+        final_bias: bool = True,
+        tied: bool = True,
+        nonlinearity=torch.relu,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.n_models = n_models
+        self.nonlinearity = nonlinearity
+        self.tied = tied
+
+        # Batched weights: [n_models, hidden_dim, input_dim]
+        self.embedding_weight = nn.Parameter(
+            torch.randn(n_models, hidden_dim, input_dim)
+        )
+
+        if final_bias:
+            self.unembedding_bias = nn.Parameter(
+                torch.randn(n_models, input_dim)
+            )
+        else:
+            self.register_parameter('unembedding_bias', None)
+
+    def forward(self, x):
+        """
+        Forward pass for batched models.
+        x: [batch_size, input_dim]
+        output: [n_models, batch_size, input_dim]
+        """
+        # Expand input: [1, batch_size, input_dim] → [n_models, batch_size, input_dim]
+        x_expanded = x.unsqueeze(0).expand(self.n_models, -1, -1)
+
+        # Batched embedding: [n_models, batch_size, hidden_dim]
+        hidden = torch.bmm(x_expanded, self.embedding_weight.transpose(1, 2))
+
+        # Batched unembedding (using transpose for tied weights)
+        if self.tied:
+            output = torch.bmm(hidden, self.embedding_weight)
+        else:
+            # If not tied, would need separate unembedding_weight parameter
+            output = torch.bmm(hidden, self.embedding_weight)
+
+        # Add bias if present
+        if self.unembedding_bias is not None:
+            output = output + self.unembedding_bias.unsqueeze(1)
+
+        # Apply nonlinearity
+        output = self.nonlinearity(output)
+
+        return output
