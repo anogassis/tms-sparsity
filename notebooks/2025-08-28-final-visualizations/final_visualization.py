@@ -402,7 +402,7 @@ def calculate_kgon_percentages(results, step =-1, sparsities= [0.426, 0.671, 0.8
             
 TEMPLATE_KGON_PERCENTAGES = "% Frequency of k-gons over training steps\n(sparsity={sparse_value:.3f})"
 
-def plot_kgon_percentages(results, sparsities=[0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon_sparsity=0.001, plot_path="../../results/",
+def plot_kgon_percentages(results, sparsities=[1,0.426, 0.671, 0.811, 0.892, 0.938, 0.964, 0.98, 0.988, 0.993], epsilon_sparsity=0.001, plot_path="../../results/",
     save_path_tmpl="{plot_path}kgon_frequencies_sparsity_{sparse_value:.3f}_{name}_{epsilon_kgon}.png",
     title_tmpl=TEMPLATE_KGON_PERCENTAGES,
     name="random",
@@ -815,32 +815,32 @@ def create_annotated_dendrogram(results,indices=None,save_path=f"{plot_path}anno
 
 def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd.DataFrame, results_optimal_init: Results, llc_estimates_optimal_init:pd.DataFrame):
 
-    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=True, result_path=plot_path,plot_test=True)
 
-    # EPSILON_KGON=0.05
-    # # plot_kgon_percentages(
-    # #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
-    # # )
-
+    EPSILON_KGON=0.05
     # plot_kgon_percentages(
-    #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
+    #     results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization"
     # )
 
-    # # plot_kgon_percentages(
-    # #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
-    # # )
+    plot_kgon_percentages(
+        results_random_init , title_tmpl=TEMPLATE_KGON_PERCENTAGES+ "with random initialization", epsilon_kgon=EPSILON_KGON
+    )
+
     # plot_kgon_percentages(
-    #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
+    #     results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal"
     # )
+    plot_kgon_percentages(
+        results_optimal_init, title_tmpl=TEMPLATE_KGON_PERCENTAGES + " with optimal initialization",name="optimal", epsilon_kgon=EPSILON_KGON
+    )
 
-    # loss_matrices=[]
-    # sparsities=[]
-    # small_results = results_random_init[:10]
+    loss_matrices=[]
+    sparsities=[]
+    small_results = results_random_init[:10]
+    compare_dataframes_and_results(((llc_estimates_random_init, results_random_init),(llc_estimates_optimal_init, results_optimal_init)), ymin=0, plot=False, result_path=plot_path,plot_test=True)
 
-    # create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
+    create_annotated_dendrogram(results_random_init,indices = [0, 10, 42, 1000, 1500, 1999, -1], save_path=f"{plot_path}annotated_dendrogram_small.svg")
 
-    # for i in range(10):
-    #     create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
+    for i in range(10):
+        create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}.svg")
 
 
 def autoencoder_forward_simple(
@@ -1062,13 +1062,19 @@ def main():
     results_1_13= load_results(data_path, version)
     llc_estimates_1_13 = get_or_create_preaggregated_llc_csv(results_1_13, version, data_path)
 
+    version = "1.15.0"
+
+    results_1_15= load_results(data_path, version)
+    llc_estimates_1_15 = get_or_create_preaggregated_llc_csv(results_1_15, version, data_path)
+
     version = "1.14.0"
 
     results_1_14= load_results(data_path, version)
     llc_estimates_1_14 = get_or_create_preaggregated_llc_csv(results_1_14, version, data_path)
 
-    results_random_init=results_1_13
-    llc_estimates_random_init=llc_estimates_1_13
+    results_random_init=results_1_15
+    llc_estimates_random_init=llc_estimates_1_15
+
     results_optimal_init=results_1_14
     llc_estimates_optimal_init=llc_estimates_1_14
 
@@ -1083,12 +1089,13 @@ def main():
     # indices = [x for x in range(0,2000)]
     # random.shuffle(indices)
     # for index in indices[:50]:
-    for index in [43, 132, 148, 8, 22, 88, 397,326,236,367,362,280, 528, 575, 407, 470,447,427,566,557, 750, 756, 621, 661, 722, 977, 963, 983]:
-        plot_specific_index(results_random_init, index)
+    # for index in [43, 132, 148, 8, 22, 88, 397,326,236,367,362,280, 528, 575, 407, 470,447,427,566,557, 750, 756, 621, 661, 722, 977, 963, 983]:
+    #     plot_specific_index(results_random_init, index)
+    #     plt.show()
 
 
     #TODO: check results from get_weights
-    #plot_everything(results_random_init=results_1_13, llc_estimates_random_init=llc_estimates_1_13, results_optimal_init=results_1_14, llc_estimates_optimal_init=llc_estimates_1_14)
+    plot_everything(results_random_init=results_random_init, llc_estimates_random_init=llc_estimates_random_init, results_optimal_init=results_optimal_init, llc_estimates_optimal_init=llc_estimates_optimal_init)
 
 
 
@@ -1185,24 +1192,25 @@ def grid_search(test_set_size=1000, sparse_value=0.426, m=6):
 
 def visualize_debug():
     data_path = "../../data"
-    version = "debug"
+    version = "1.15.0"
     results_debug= load_results(data_path, version)
-    llc_estimates_debug = get_or_create_preaggregated_llc_csv(results_debug, version, data_path)
-    for i in range(10):
+    # llc_estimates_debug = get_or_create_preaggregated_llc_csv(results_debug, version, data_path)
+    for i in range(1910, 1920):
         plot_specific_index(results_debug, i)
-    compare_dataframes_and_results(
-        ((llc_estimates_debug, results_debug),(llc_estimates_debug, results_debug)),
-        ymin=0,
-        plot=True,
-        result_path=plot_path,
-        plot_test=True
-    )
+        plt.show()
+    # compare_dataframes_and_results(
+    #     ((llc_estimates_debug, results_debug),(llc_estimates_debug, results_debug)),
+    #     ymin=0,
+    #     plot=True,
+    #     result_path=plot_path,
+    #     plot_test=True
+    # )
 
 # perfect_solution()
 # model_geometry()
 
-# main()
-visualize_debug()
+main()
+# visualize_debug()
 # calculate_convex_hull_vertices(torch.Tensor(
 # [[-1.8623e+00, -1.1313e+00,  8.4201e-01,  6.8771e-03, -1.5209e-02,
 #          -1.2631e+00],
