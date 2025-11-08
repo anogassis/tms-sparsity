@@ -162,7 +162,9 @@ def create_scatter_plot(
             x=0.01,
             bgcolor="rgba(255,255,255,0.8)"
         ),
-        margin=dict(l=60, r=20, t=60, b=60)
+        margin=dict(l=60, r=20, t=60, b=60),
+        # Enable click events
+        clickmode='event+select'
     )
     
     return fig

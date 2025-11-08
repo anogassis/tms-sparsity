@@ -236,14 +236,31 @@ with col1:
             st.session_state.selected_model_random
         )
         
-        st.plotly_chart(fig_random, use_container_width=True, key="scatter_random")
+        # Display the plot with selection enabled
+        event = st.plotly_chart(
+            fig_random, 
+            use_container_width=True, 
+            key="scatter_random",
+            on_select="rerun",
+            selection_mode="points"
+        )
+        
+        # Process selection from event
+        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'point_indices'):
+            if len(event.selection.point_indices) > 0:
+                # Get the first selected point index
+                point_idx = event.selection.point_indices[0]
+                # Map to model index in the filtered dataframe
+                clicked_model_index = data_random.iloc[point_idx]['model_index']
+                st.session_state.selected_model_random = int(clicked_model_index)
+                st.session_state.selected_init_type = 'random'
         
         # Manual selection dropdown
         available_indices_random = sorted(data_random['model_index'].unique().tolist())
         selected_idx_random = st.selectbox(
-            "Manually select model:",
+            "Or manually select model:",
             options=[None] + available_indices_random,
-            format_func=lambda x: "None (click plot to select)" if x is None else f"Model {x}",
+            format_func=lambda x: "None" if x is None else f"Model {x}",
             key="manual_select_random"
         )
         
@@ -265,14 +282,31 @@ with col2:
             st.session_state.selected_model_optimal
         )
         
-        st.plotly_chart(fig_optimal, use_container_width=True, key="scatter_optimal")
+        # Display the plot with selection enabled
+        event = st.plotly_chart(
+            fig_optimal, 
+            use_container_width=True, 
+            key="scatter_optimal",
+            on_select="rerun",
+            selection_mode="points"
+        )
+        
+        # Process selection from event
+        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'point_indices'):
+            if len(event.selection.point_indices) > 0:
+                # Get the first selected point index
+                point_idx = event.selection.point_indices[0]
+                # Map to model index in the filtered dataframe
+                clicked_model_index = data_optimal.iloc[point_idx]['model_index']
+                st.session_state.selected_model_optimal = int(clicked_model_index)
+                st.session_state.selected_init_type = 'optimal'
         
         # Manual selection dropdown
         available_indices_optimal = sorted(data_optimal['model_index'].unique().tolist())
         selected_idx_optimal = st.selectbox(
-            "Manually select model:",
+            "Or manually select model:",
             options=[None] + available_indices_optimal,
-            format_func=lambda x: "None (click plot to select)" if x is None else f"Model {x}",
+            format_func=lambda x: "None" if x is None else f"Model {x}",
             key="manual_select_optimal"
         )
         
