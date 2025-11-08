@@ -1,4 +1,25 @@
-# Experiments
+# TMS Sparsity Experiments
+
+## Interactive Visualization
+
+🎉 **NEW**: Interactive Streamlit app for exploring the results!
+
+Visualize the relationship between Learning Coefficient (LLC) and Loss across different training epochs with an interactive web interface.
+
+**Quick Start:**
+```bash
+# Install dependencies
+pip install -r requirements-streamlit.txt
+
+# Launch the app
+bash run_streamlit.sh
+```
+
+See [streamlit_app/README.md](streamlit_app/README.md) for more details.
+
+---
+
+## Experiments
 - indices:
 cutoff 2
 0.426: 187, 74, 85, 131, 37, 43 

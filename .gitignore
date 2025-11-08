@@ -173,3 +173,6 @@ results_backup/
 
 # editor
 .vscode/
+
+# Streamlit cache
+.streamlit/
