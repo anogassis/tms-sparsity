@@ -842,6 +842,7 @@ def plot_everything(results_random_init: List[Any], llc_estimates_random_init:pd
 
     for i in range(10):
         create_annotated_dendrogram(results_random_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}_{random_version}.svg")
+        create_annotated_dendrogram(results_optimal_init, range(i*200, (i+1)*200),save_path=f"{plot_path}annotated_dendrogram_{i}_{"1.14.0"}.svg")
 
 
 def autoencoder_forward_simple(
