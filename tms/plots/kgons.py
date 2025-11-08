@@ -358,7 +358,7 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     for i in range(len(Ws)):
         ax = fig.add_subplot(gs[1, i], adjustable='box')
         ax_biases.append(ax)
-        ax.set_xlim(0, max_biases[i]+0.5)
+        ax.set_xlim(0, max(max_biases, 1.5))
 
 
     if test_losses:
