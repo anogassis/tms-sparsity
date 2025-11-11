@@ -2,10 +2,20 @@
 
 import plotly.graph_objects as go
 import plotly.express as px
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+
+# Configure matplotlib for crisp display in Streamlit
+matplotlib.use('Agg')  # Use non-interactive backend
+matplotlib.rcParams['figure.dpi'] = 200  # Standard screen DPI
+matplotlib.rcParams['savefig.dpi'] = 200
+matplotlib.rcParams['savefig.format'] = 'png'
+# Anti-aliasing and quality settings
+matplotlib.rcParams['figure.facecolor'] = 'white'
+matplotlib.rcParams['axes.facecolor'] = 'white'
 from typing import Optional, List, Dict
 import sys
 import os

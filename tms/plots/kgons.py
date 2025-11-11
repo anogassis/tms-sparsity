@@ -303,9 +303,9 @@ def plot_polygons(Ws, biases, axes=None, ax_biases=None):
     None
     """
     if axes is None:
-        fig, axes = plt.subplots(1, len(Ws), figsize=(15, 4))
+        fig, axes = plt.subplots(1, len(Ws), figsize=(15, 4), dpi=300)
     if ax_biases is None:
-        fig, ax_biases = plt.subplots(1, len(Ws), figsize=(15, 4))
+        fig, ax_biases = plt.subplots(1, len(Ws), figsize=(15, 4), dpi=300)
 
     for ax, W, ax_b, b in zip(axes, Ws, ax_biases, biases):
         plot_polygon(W, b=b, ax=ax, ax_bias=ax_b, ax_wnorm=ax_b)
@@ -337,7 +337,9 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     version : int, optional
         Version number. Default is None.
     """
-    fig = plt.figure(figsize=(15, 6))
+    # For sharp web display: moderate figsize with high DPI
+    # This creates ~1600x640 pixels which displays crisp without browser resizing
+    fig = plt.figure(figsize=(15, 6), dpi=200)
 
     gs = fig.add_gridspec(3, len(Ws))
     ax_losses = fig.add_subplot(gs[2, :])
@@ -358,7 +360,7 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     for i in range(len(Ws)):
         ax = fig.add_subplot(gs[1, i], adjustable='box')
         ax_biases.append(ax)
-        ax.set_xlim(0, max(max_biases, 1.5))
+        ax.set_xlim(0, max(max(max_biases) if max_biases else 0, 1.5))
 
 
     if test_losses:

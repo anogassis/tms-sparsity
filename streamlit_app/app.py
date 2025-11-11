@@ -364,8 +364,23 @@ if selected_model is not None and results_to_use is not None:
         
         with st.spinner("🎨 Generating detailed visualization..."):
             try:
+                import io
+                import matplotlib.pyplot as plt
+                
                 fig = plot_model_details(model_data)
-                st.pyplot(fig, use_container_width=True)
+                
+                # Save as high-resolution PNG without container width constraint
+                # This preserves the original resolution
+                buffer = io.BytesIO()
+                fig.savefig(buffer, format='png', dpi=200, bbox_inches='tight', 
+                           facecolor='white', edgecolor='none')
+                buffer.seek(0)
+                
+                # Display image at native resolution (no resizing)
+                st.image(buffer)
+                
+                # Close the figure to free memory
+                plt.close(fig)
             except Exception as e:
                 st.error(f"❌ Error generating detailed plot: {e}")
                 with st.expander("Show error details"):
