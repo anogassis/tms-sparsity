@@ -244,29 +244,31 @@ with col1:
             on_select="rerun",
             selection_mode="points"
         )
-        
-        # Process selection from event
-        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'point_indices'):
-            if len(event.selection.point_indices) > 0:
-                # Get the first selected point index
-                point_idx = event.selection.point_indices[0]
-                # Map to model index in the filtered dataframe
-                clicked_model_index = data_random.iloc[point_idx]['model_index']
-                st.session_state.selected_model_random = int(clicked_model_index)
-                st.session_state.selected_init_type = 'random'
+
+        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'points'):
+            if len(event.selection.points) > 0:
+                # Get the first selected point
+                point = event.selection.points[0]
+                
+                # Extract model_index from customdata
+                if 'customdata' in point and point['customdata'] is not None:
+                    clicked_model_index = point['customdata']['0']  # First element is model_index
+
+                    st.session_state.selected_model_random = int(clicked_model_index)
+                    st.session_state.selected_init_type = 'random'
         
         # Manual selection dropdown
         available_indices_random = sorted(data_random['model_index'].unique().tolist())
-        selected_idx_random = st.selectbox(
+        def callback():
+            st.session_state.selected_model_random = st.session_state.manual_select_random
+        st.selectbox(
             "Or manually select model:",
             options=[None] + available_indices_random,
             format_func=lambda x: "None" if x is None else f"Model {x}",
-            key="manual_select_random"
+            index= st.session_state.selected_model_random,
+            key="manual_select_random",
+            on_change=callback
         )
-        
-        if selected_idx_random is not None:
-            st.session_state.selected_model_random = selected_idx_random
-            st.session_state.selected_init_type = 'random'
 
 with col2:
     st.subheader("Optimal Parameter Initialization")
@@ -292,27 +294,31 @@ with col2:
         )
         
         # Process selection from event
-        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'point_indices'):
-            if len(event.selection.point_indices) > 0:
-                # Get the first selected point index
-                point_idx = event.selection.point_indices[0]
-                # Map to model index in the filtered dataframe
-                clicked_model_index = data_optimal.iloc[point_idx]['model_index']
-                st.session_state.selected_model_optimal = int(clicked_model_index)
-                st.session_state.selected_init_type = 'optimal'
-        
-        # Manual selection dropdown
+        # Store previous selectbox value
+        if 'prev_manual_select_optimal' not in st.session_state:
+            st.session_state.prev_manual_select_optimal = None
+
+        # Handle click events (same as before)
+        if event and hasattr(event, 'selection') and event.selection and hasattr(event.selection, 'points'):
+            if len(event.selection.points) > 0:
+                point = event.selection.points[0]
+                if 'customdata' in point and point['customdata'] is not None:
+                    clicked_model_index = point['customdata']['0']
+                    st.session_state.selected_model_optimal = int(clicked_model_index)
+                    st.session_state.selected_init_type = 'optimal'
+
+        # Manual selection
         available_indices_optimal = sorted(data_optimal['model_index'].unique().tolist())
-        selected_idx_optimal = st.selectbox(
+        def callback():
+            st.session_state.selected_model_optimal = st.session_state.manual_select_optimal
+        st.selectbox(
             "Or manually select model:",
             options=[None] + available_indices_optimal,
             format_func=lambda x: "None" if x is None else f"Model {x}",
-            key="manual_select_optimal"
+            index= st.session_state.selected_model_optimal,
+            key="manual_select_optimal",
+            on_change=callback
         )
-        
-        if selected_idx_optimal is not None:
-            st.session_state.selected_model_optimal = selected_idx_optimal
-            st.session_state.selected_init_type = 'optimal'
 
 # =============================================================================
 # Model Details Section
