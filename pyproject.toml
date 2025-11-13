@@ -1,27 +1,34 @@
-[tool.poetry]
+[project]
 name = "tms"
 version = "0.1.0"
 description = "A collection of functions to train and evaluate toy models of superposition through the lens of developmental interpretability"
 authors = [
-    "Andre Assis",
-    "Tassilo Neubauer",
+    { name = "Andre Assis" },
+    { name = "Tassilo Neubauer" },
 ]
-license = "MIT"
+requires-python = ">=3.10,<3.13"
 readme = "README.md"
+license = "MIT"
+dependencies = [
+    "torch~=2.3",
+    "ipykernel>=6.29.5,<7",
+    "scikit-learn>=1.5.1,<2",
+    "seaborn>=0.13.2,<0.14",
+    "devinterp==1.0.0",
+    "numpy",
+    "rich>=13.9.4,<14",
+    "diskcache>=5.6.3,<6",
+    "jaxtyping>=0.3.2,<0.4",
+    "typeguard>=4.4.4,<5",
+    "pytest>=8.4.1,<9",
+    "streamlit>=1.51.0,<2",
+    "plotly>=6.4.0,<7",
+    "streamlit-plotly-events>=0.0.6,<0.0.7",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-torch = "2.3"
-ipykernel = "^6.29.5"
-scikit-learn = "^1.5.1"
-seaborn = "^0.13.2"
-devinterp = "1.0.0"
-numpy = "1.25"
-rich = "^13.9.4"
-
-[tool.poetry.group.dev.dependencies]
-ipykernel = "^6.29.5"
+[dependency-groups]
+dev = ["ipykernel>=6.29.5,<7"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,11 +1,33 @@
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
 import torch
 import torch.nn as nn
+
+import numpy as np
+
+from typing import Any, Dict, List, Tuple
+import warnings
+from collections import defaultdict
+
 from tms.models.autoencoder import ToyAutoencoder
-from tms.data.dataset import SyntheticBinaryValued
+from tms.data.dataset import SyntheticBinaryValued, SyntheticBinarySparseValued
 from tms.plots.kgons import plot_losses_and_polygons
-from tms.utils.utils import iterate_container
-from typing import Any, Dict, List
+from tms.utils.utils import iterate_container, get_first
+import pandas as pd
+
+
+def compute_test_loss(W, b, test_X):
+    """Vectorized test loss computation using ReLU output."""
+    W = torch.as_tensor(W, dtype=torch.float32)
+    b = torch.as_tensor(b, dtype=torch.float32)
+    with torch.no_grad():
+        encoded = test_X @ W.T          # (N, 2)
+        decoded = encoded @ W           # (N, 6)
+        out = torch.relu(decoded + b)   # Apply model nonlinearity
+        loss = torch.mean((out - test_X).pow(2))
+    return loss.item()
 
 
 def plot_results_by_indices(results, indices):
@@ -110,3 +132,167 @@ def plot_results(results: List[Dict[str, Any]] | Dict[int,Dict[str,Any]], plot_n
             plot_losses_and_polygons(STEPS, losses, PLOT_STEPS, Ws, biases)
             plt.show()
             
+    
+
+
+def collect_global_sparsities(df_results_pairs):
+    sparsities = set()
+    for _, results in df_results_pairs:
+        for result in iterate_container(results):
+            sparsity = results[result["run_id"]]['parameters']['sparsity']
+            if sparsity != 0:
+                sparsities.add(sparsity)
+    return sorted(sparsities)
+
+
+def create_color_mapping(sparsities):
+    cmap = plt.get_cmap("tab10")  
+    n_colors = cmap.N 
+
+    return {s: cmap(i % n_colors) for i, s in enumerate(sorted(sparsities))}
+
+
+Results = Dict[int, Any] | List[Any]
+DfResultPair =  Tuple[pd.DataFrame, Results]
+
+def plot_for_position(position, df_results_pairs: Tuple[DfResultPair, DfResultPair], batch_size, learning_rate, sparsity_to_color, x_scale, y_scale, sharex, sharey, ymin, test_loss=True,test_set_size = 10000):
+    test_X = {}
+
+    sparsities = collect_global_sparsities(df_results_pairs)
+    for sparsity in sparsities:
+        test_X[sparsity] = torch.stack([x for x in SyntheticBinarySparseValued(test_set_size, 6, sparsity)]).float()
+
+    fig, axes = plt.subplots(1, len(df_results_pairs), figsize=(15*len(df_results_pairs), 10), sharey=sharey, sharex=sharex)
+    if len(df_results_pairs) == 1:
+        axes = [axes]
+
+    for pair_index, (llc_estimates, results) in enumerate(df_results_pairs):
+        llc_loss_by_sparsity = defaultdict(list)
+        steps = get_first(results)['parameters']['log_ivl']
+
+        # llc_estimates_dict = llc_estimates.to_dict()
+
+        llc_estimates_dict = {
+            (row['index'], row['batch_size'], row['lr'], row['snapshot_index']): row['llc']
+            for _, row in llc_estimates.iterrows()
+        }
+        for result in iterate_container(results):
+            index = result["run_id"]
+            sparsity = results[index]['parameters']['sparsity']
+            if sparsity == 0:
+                continue
+            llc = llc_estimates_dict.get((index, batch_size, learning_rate, position), np.nan)
+            # print llc indices:
+            # print(index, batch_size, learning_rate, position)
+            if test_loss:
+                weights = results[index]['weights'][position]
+                W = weights['embedding.weight']
+                b = weights['unembedding.bias']
+                # print("Computing test loss for index", index, "sparsity", sparsity)
+                # TODO: vectorize this
+                loss = compute_test_loss(W,b, test_X=test_X[sparsity])
+            else:
+                loss = results[index]['logs']['loss'].values[position]
+            llc_loss_by_sparsity[sparsity].append((llc, loss))
+            # print("Sparsity:", sparsity)
+            # print("loss:", loss)
+            # print("llc:", llc)
+
+        for sparsity, llc_loss in llc_loss_by_sparsity.items():
+
+
+            arr = np.asarray(llc_loss)
+            mask = ~np.isnan(arr[:, 0])
+            if not mask.any():
+                continue
+            llcs, losses = arr[mask].T
+            color = sparsity_to_color.get(sparsity, 'gray')
+            axes[pair_index].scatter(llcs, losses, label=f"Sparsity: {round(sparsity, 3)}", color=color)
+
+        if pair_index == 0:
+            title = "Autoencoders initialized at random 4-gon"
+        if pair_index == 1:
+            title = "Autoencoders initialized at optimal parameters for sparse inputs"
+        axes[pair_index].set_title(title, fontsize=24)
+        axes[pair_index].set_xlabel("LLC", fontsize=22)
+        axes[pair_index].set_ylabel("Loss", fontsize=22)
+        axes[pair_index].legend(fontsize=20)
+        axes[pair_index].tick_params(axis='both', labelsize=20)
+        axes[pair_index].set_xscale(x_scale)
+        axes[pair_index].set_yscale(y_scale)
+        axes[pair_index].set_ylim(ymin=ymin)
+
+    plt.tight_layout()
+    if test_loss:
+        plt.suptitle(f"Test loss and LLC After Epoch {steps[position]}",#, fontsize=16
+                 fontsize=30,
+                 )
+    else:
+        plt.suptitle(f"Training loss and LLC After Epoch {steps[position]}",#, fontsize=16
+                 fontsize=30,
+                 )
+    plt.subplots_adjust(top=0.9)
+
+    return fig, steps[position]
+
+
+def compare_dataframes_and_results(
+    df_results_pairs: Tuple[DfResultPair, DfResultPair],
+    positions=[9, 18, 27, 36, 45],
+    hyperparam_combos=[(300, 0.001)],
+    x_scale="linear",
+    y_scale="linear",
+    sharey=False,
+    sharex=False,
+    ymin=1e-4,
+    result_path='../results',
+    plot:bool=True,
+    plot_test:bool=False,
+):
+    warnings.simplefilter(action='ignore', category=UserWarning)
+
+    # Create global sparsity-color mapping
+    unique_sparsities = collect_global_sparsities(df_results_pairs)
+    sparsity_to_color = create_color_mapping(unique_sparsities)
+
+    for batch_size, learning_rate in hyperparam_combos:
+        print(f"Batch size: {batch_size}, Learning rate: {learning_rate}\n")
+
+        # Preaggregate all pairs
+        # preaggs = [preaggregate_llc(est) for est, _ in df_results_pairs]
+        plot_test_param = [False]
+        if plot_test:
+            plot_test_param = [True, False]
+
+        positions_test = [(position, test_loss) for test_loss in plot_test_param for position in positions]
+        for position,test_loss in positions_test:
+
+            fig, step = plot_for_position(
+                position,
+                df_results_pairs,
+                batch_size,
+                learning_rate,
+                sparsity_to_color,
+                x_scale,
+                y_scale,
+                sharex,
+                sharey,
+                ymin,
+                test_loss=test_loss,
+            )
+
+            param_string = f"bs{batch_size}_lr{learning_rate}_pos{position}_epoch{step}"
+            if x_scale != "linear" or y_scale != "linear":
+                param_string += f"_x{x_scale}_y{y_scale}"
+            if ymin != 1e-4:
+                param_string += f"_ymin{ymin}"
+            if test_loss:
+                param_string+= "_test"
+            else:
+                param_string+= "_train"
+
+            save_path = f'{result_path}/loss_vs_llc_{param_string}'
+            fig.savefig(f'{save_path}.svg', bbox_inches='tight', format='svg')
+            fig.savefig(f'{save_path}.png', dpi=300, bbox_inches='tight', format='png')
+            if plot:
+                plt.show()

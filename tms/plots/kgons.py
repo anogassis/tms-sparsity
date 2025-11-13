@@ -33,29 +33,29 @@ def plot_percentage_of_kgons_over_time(weights: Dict[int, List[List[Dict[str, to
     None
     """
     plt.figure(figsize=(15, 6))
-    
+
     # Generate a color map to represent different sparsities with a color gradient
     sparsities = sorted(weights.keys())
     colors = plt.cm.viridis(np.linspace(0, 1, len(sparsities)))
-    
+
     # Create a dictionary to store percentages of k-gons for each sparsity
     kgon_percentages = {sparsity: {k: [] for k in k_values} for sparsity in sparsities}
-    
+
     # Iterate over each sparsity
     for sparsity, runs_weights in weights.items():
         # Get the color for the current sparsity
         color = colors[sparsities.index(sparsity)]
-        
+
         # Iterate over each time step
         for step_weights in zip(*runs_weights):  # This transposes the list of lists
             edge_counts = count_kgons(step_weights)
             total_counts = sum(edge_counts.values())
-            
+
             # Calculate percentages for interested k-gons
             for k in k_values:
                 percentage = (edge_counts.get(k, 0) / total_counts) * 100
                 kgon_percentages[sparsity][k].append(percentage)
-        
+
         # Plot the percentage of k-gons over time for each k-value
         percentages = np.zeros(len(steps))
         for k in k_values:
@@ -69,7 +69,7 @@ def plot_percentage_of_kgons_over_time(weights: Dict[int, List[List[Dict[str, to
     plt.yscale(yscales)
     if not title:
         plt.title(f'Percentage of {", ".join([str(k) for k in k_values])}-gons over Training Steps for Different Sparsities')
-    else: 
+    else:
         plt.title(title)
     plt.legend()
 
@@ -93,41 +93,41 @@ def plot_rate_of_change_of_kgons(weights: Dict[int, List[List[Dict[str, torch.Te
     None
     """
     plt.figure(figsize=(15, 6))
-    
+
     sparsities = sorted(weights.keys())
     colors = plt.cm.viridis(np.linspace(0, 1, len(sparsities)))
-    
+
     kgon_percentages = {sparsity: {k: [] for k in k_values} for sparsity in sparsities}
     kgon_rate_of_change = {sparsity: {k: [] for k in k_values} for sparsity in sparsities}
-        
+
     rate_of_change = np.zeros(len(steps) - 1)
-    
+
     for sparsity, runs_weights in weights.items():
         color = colors[sparsities.index(sparsity)]
-        
+
         for step_weights in zip(*runs_weights):
             edge_counts = count_kgons(step_weights)
             total_counts = sum(edge_counts.values())
-            
+
             for k in k_values:
                 percentage = (edge_counts.get(k, 0) / total_counts) * 100
                 kgon_percentages[sparsity][k].append(percentage)
-        
+
         for k in k_values:
             kgon_rate_of_change[sparsity][k] = np.diff(kgon_percentages[sparsity][k])
-        
+
         for k in k_values:
             rate_of_change += kgon_rate_of_change[sparsity][k]
         label = f'Sparsity: {sparsity}, {" ".join([str(k) for k in k_values])}-gons Rate of Change'
     plt.plot(steps[1:], rate_of_change, label=label, color=color)
-    
+
     plt.xlabel('Step')
     plt.ylabel('Rate of Change of Percentage of k-gons')
     plt.xscale(xscale)
     plt.title(f'Rate of Change of {", ".join([str(k) for k in k_values])}-gons over Training Steps for Different Sparsities')
     plt.legend()
     plt.show()
-       
+
 def plot_polygon(
     W: torch.Tensor,
     b=None,
@@ -176,7 +176,7 @@ def plot_polygon(
     ValueError
         If W does not have either 2 or 3 rows.
     """
-    
+
     if ax is None:
         if W.shape[0] == 2:
             fig, ax = plt.subplots(1, 1)
@@ -257,7 +257,7 @@ def plot_polygon(
         raise ValueError("W must have either 2 or 3 rows")
 
     if b is not None and ax_bias is not None and W.shape[0]==2:
-        
+
         b_plot = np.ravel(b)
         if orderb:
             b_plot = b_plot[order]
@@ -303,14 +303,14 @@ def plot_polygons(Ws, biases, axes=None, ax_biases=None):
     None
     """
     if axes is None:
-        fig, axes = plt.subplots(1, len(Ws), figsize=(15, 4))
+        fig, axes = plt.subplots(1, len(Ws), figsize=(15, 4), dpi=300)
     if ax_biases is None:
-        fig, ax_biases = plt.subplots(1, len(Ws), figsize=(15, 4))
+        fig, ax_biases = plt.subplots(1, len(Ws), figsize=(15, 4), dpi=300)
 
     for ax, W, ax_b, b in zip(axes, Ws, ax_biases, biases):
         plot_polygon(W, b=b, ax=ax, ax_bias=ax_b, ax_wnorm=ax_b)
 
-def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None):
+def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log", yscale="log", batch_size=None, run=None, version=None, test_losses=[],sparsity=None):
     """
     Plot the losses and weight snapshots of polygons.
 
@@ -337,7 +337,9 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     version : int, optional
         Version number. Default is None.
     """
-    fig = plt.figure(figsize=(15, 6))
+    # For sharp web display: moderate figsize with high DPI
+    # This creates ~1600x640 pixels which displays crisp without browser resizing
+    fig = plt.figure(figsize=(15, 6), dpi=200)
 
     gs = fig.add_gridspec(3, len(Ws))
     ax_losses = fig.add_subplot(gs[2, :])
@@ -347,8 +349,10 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     max_x, min_x = max([np.max(W[0]) for W in Ws]), min([np.min(W[0]) for W in Ws])
     max_y, min_y = max([np.max(W[1]) for W in Ws]), min([np.min(W[1]) for W in Ws])
 
+    max_biases = [np.max(np.abs(b)) for b in biases]
+
     for i in range(len(Ws)):
-        ax = fig.add_subplot(gs[0, i], adjustable='box') 
+        ax = fig.add_subplot(gs[0, i], adjustable='box')
         ax.set_aspect('equal')
         ax_polygons.append(ax)
         ax.set_xlim(min_x, max_x)
@@ -356,13 +360,21 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     for i in range(len(Ws)):
         ax = fig.add_subplot(gs[1, i], adjustable='box')
         ax_biases.append(ax)
-        ax.set_xlim(0, 1.5)
-        
-    ax_losses.plot(steps, losses)
+        ax.set_xlim(0, max(max(max_biases) if max_biases else 0, 1.5))
+
+
+    if test_losses:
+        ax_losses.plot(steps, losses, label="Train Loss")
+        ax_losses.plot([x[0] for x in test_losses], [x[1] for x in test_losses], label="Test Loss")
+
+    else:
+        ax_losses.plot(steps, losses)
     ax_losses.set_xlabel("Step")
     ax_losses.set_ylabel("Loss")
     ax_losses.set_xscale(xscale)
     ax_losses.set_yscale(yscale)
+    ax_losses.legend()
+
 
     for i, step in enumerate(highlights):
         ax_losses.axvline(step, color="gray", linestyle="--")
@@ -371,7 +383,9 @@ def plot_losses_and_polygons(steps, losses, highlights, Ws, biases, xscale="log"
     version_str = f"Version: {version}" if version is not None else ""
     batch_size_str = f"Batch size: {batch_size}" if batch_size is not None else ""
     run_str = f"Run: {run}" if run is not None else ""
-    plt.suptitle("Loss and Weight snapshots, " + batch_size_str + " " + run_str + " " + version_str)
+    sparsity_str = f"Sparsity: {sparsity}" if sparsity is not None else ""
+    plt.suptitle("Loss and Weight snapshots, " + sparsity_str +
+                 " " + batch_size_str + " " + run_str + " " + version_str)
     plt.tight_layout()
 
 def plot_experiments(

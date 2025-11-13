@@ -1,5 +1,5 @@
-*.zip filter=lfs diff=lfs merge=lfs -text
-data/1.13.0_and_1.14.0.zip filter=lfs diff=lfs merge=lfs -text
-data/llc_estimate_1.9.0.zip filter=lfs diff=lfs merge=lfs -text
-data/llc_estimates_1.11.0.zip filter=lfs diff=lfs merge=lfs -text
-data/llc_estimates_1.12.0.zip filter=lfs diff=lfs merge=lfs -text
+data/logs_loss_1.15.0_all_runs.pkl filter=lfs diff=lfs merge=lfs -text
+data/llc_preagg_1.15.0.csv filter=lfs diff=lfs merge=lfs -text
+data/llc_preagg_*.csv filter=lfs diff=lfs merge=lfs -text
+data/logs_loss_*_all_runs.pkl filter=lfs diff=lfs merge=lfs -text
+results/** filter=lfs diff=lfs merge=lfs -text

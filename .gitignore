@@ -164,12 +164,15 @@ cython_debug/
 /data/*
 .DS_Store
 
-# keep *.zip in the data folder for LFS
-!data/*.zip
+# keep these files in the data folder for LFS
+!data/llc_preagg_*.csv
+!data/logs_loss_*_all_runs.pkl
 
 # ignore results directories
-results/*
 results_backup/
 
 # editor
 .vscode/
+
+# Streamlit cache
+.streamlit/
