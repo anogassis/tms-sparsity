@@ -265,7 +265,6 @@ with col1:
             "Or manually select model:",
             options=[None] + available_indices_random,
             format_func=lambda x: "None" if x is None else f"Model {x}",
-            index= st.session_state.selected_model_random,
             key="manual_select_random",
             on_change=callback
         )
@@ -315,7 +314,6 @@ with col2:
             "Or manually select model:",
             options=[None] + available_indices_optimal,
             format_func=lambda x: "None" if x is None else f"Model {x}",
-            index= st.session_state.selected_model_optimal,
             key="manual_select_optimal",
             on_change=callback
         )
