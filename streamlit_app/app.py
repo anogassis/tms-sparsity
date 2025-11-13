@@ -239,7 +239,7 @@ with col1:
         # Display the plot with selection enabled
         event = st.plotly_chart(
             fig_random, 
-            use_container_width=True, 
+            width='stretch', 
             key="scatter_random",
             on_select="rerun",
             selection_mode="points"
@@ -285,7 +285,7 @@ with col2:
         # Display the plot with selection enabled
         event = st.plotly_chart(
             fig_optimal, 
-            use_container_width=True, 
+            width="stretch",
             key="scatter_optimal",
             on_select="rerun",
             selection_mode="points"
@@ -399,11 +399,11 @@ if selected_model is not None and results_to_use is not None:
         with st.expander("📈 View Statistics for Current View"):
             if not data_random.empty:
                 st.markdown("**Random Initialization Statistics**")
-                st.dataframe(create_summary_stats_table(data_random), use_container_width=True)
+                st.dataframe(create_summary_stats_table(data_random), width='stretch')
             
             if not data_optimal.empty:
                 st.markdown("**Optimal Initialization Statistics**")
-                st.dataframe(create_summary_stats_table(data_optimal), use_container_width=True)
+                st.dataframe(create_summary_stats_table(data_optimal), width='stretch')
     else:
         st.error(f"❌ Could not load data for model {selected_model}")
 else:
@@ -421,11 +421,11 @@ else:
     with st.expander("📈 View Statistics for Current View"):
         if not data_random.empty:
             st.markdown("**Random Initialization Statistics**")
-            st.dataframe(create_summary_stats_table(data_random), use_container_width=True)
+            st.dataframe(create_summary_stats_table(data_random), width='stretch')
         
         if not data_optimal.empty:
             st.markdown("**Optimal Initialization Statistics**")
-            st.dataframe(create_summary_stats_table(data_optimal), use_container_width=True)
+            st.dataframe(create_summary_stats_table(data_optimal), width='stretch')
 
 # =============================================================================
 # Footer
