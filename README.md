@@ -33,6 +33,19 @@ cutoff 2
 8: 1689, 1751, 1786, 1759, 1693
 9: 1886, 1857, 1831, 1930
 
+Running grid search for sparsity 0.426
+Best parameters: l=0.5781, b=0.6438, MSE=0.151207
+Running grid search for sparsity 0.671
+Best parameters: l=0.5991, b=0.4310, MSE=0.158461
+Running grid search for sparsity 0.811
+Best parameters: l=0.6528, b=0.2759, MSE=0.134199
+Running grid search for sparsity 0.892
+Best parameters: l=0.9284, b=-0.1690, MSE=0.104882
+=> optimal solution is better than hexagon?
+Running grid search for sparsity 0.938
+Best parameters: l=1.0538, b=-0.3828, MSE=0.074396
+Running grid search for sparsity 0.964
+Best parameters: l=1.1686, b=-0.5759, MSE=0.050903
 ## Brain dump:
 
 We reproduced the results from the paper and did our first design of experiments. We initially looked at sparsities from 0 to 1 randomly initialized.
